@@ -1,0 +1,130 @@
+/**
+ * Zone d'upload de dataset avec drag-and-drop et icônes Lucide.
+ */
+import React, { useState, useRef } from 'react'
+import { UploadCloud, FileText, CheckCircle, AlertCircle } from 'lucide-react'
+
+function DatasetUpload({ onUploadSuccess }) {
+  const [dragging, setDragging]   = useState(false)
+  const [name, setName]           = useState('')
+  const [file, setFile]           = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError]         = useState('')
+  const inputRef = useRef()
+
+  const handleFile = (f) => {
+    setFile(f)
+    if (!name) setName(f.name.replace(/\.[^.]+$/, ''))
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setDragging(false)
+    const f = e.dataTransfer.files[0]
+    if (f) handleFile(f)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!file || !name.trim()) return
+    setUploading(true)
+    setError('')
+    try {
+      await onUploadSuccess(file, name.trim())
+      setFile(null)
+      setName('')
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Erreur lors de l'upload")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <form onSubmit={handleSubmit}>
+        {/* Zone drag-and-drop */}
+        <div
+          onDragOver={e => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+          style={{
+            border: `2px dashed ${dragging ? '#4361EE' : '#D1D5DB'}`,
+            borderRadius: 12, padding: '32px 24px', textAlign: 'center',
+            backgroundColor: dragging ? '#EEF2FF' : '#F9FAFB',
+            cursor: 'pointer', transition: 'all 0.2s', marginBottom: 14,
+          }}
+        >
+          <input
+            ref={inputRef} type="file"
+            accept=".csv,.json,.xlsx,.parquet,.txt"
+            style={{ display: 'none' }}
+            onChange={e => e.target.files[0] && handleFile(e.target.files[0])}
+          />
+
+          {file ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <CheckCircle size={20} color="#10B981" />
+              <span style={{ fontWeight: 600, color: '#10B981', fontSize: 14 }}>{file.name}</span>
+            </div>
+          ) : (
+            <>
+              <UploadCloud size={32} color={dragging ? '#4361EE' : '#9CA3AF'} style={{ marginBottom: 10 }} />
+              <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#374151', fontSize: 14 }}>
+                Glissez un fichier ou cliquez pour parcourir
+              </p>
+              <p style={{ margin: 0, color: '#9CA3AF', fontSize: 12 }}>
+                CSV, JSON, Excel, Parquet, TXT
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Champ nom + bouton */}
+        {file && (
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <FileText size={14} color="#9CA3AF" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+              <input
+                type="text" value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Nom du dataset"
+                required
+                style={{
+                  width: '100%', padding: '10px 12px 10px 34px',
+                  borderRadius: 8, border: '1px solid #D1D5DB',
+                  fontSize: 13, outline: 'none', color: '#111827',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <button
+              type="submit" disabled={uploading}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '10px 22px', borderRadius: 8,
+                backgroundColor: uploading ? '#93C5FD' : '#4361EE',
+                color: '#fff', border: 'none',
+                fontSize: 13, fontWeight: 600,
+                cursor: uploading ? 'not-allowed' : 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <UploadCloud size={14} />
+              {uploading ? 'Envoi…' : 'Importer'}
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#EF4444', fontSize: 12, marginTop: 8 }}>
+            <AlertCircle size={13} /> {error}
+          </div>
+        )}
+      </form>
+    </div>
+  )
+}
+
+export default DatasetUpload

@@ -1,0 +1,16 @@
+"""
+Router principal de l'API v1.
+Agrège tous les routers des endpoints et les préfixe correctement.
+"""
+from fastapi import APIRouter
+from app.api.v1.endpoints import auth, datasets, models, experiments, results, admin, dashboard
+
+api_router = APIRouter()
+
+api_router.include_router(auth.router,        prefix="/auth",        tags=["Authentication"])
+api_router.include_router(datasets.router,    prefix="/datasets",    tags=["Datasets"])
+api_router.include_router(models.router,      prefix="/models",      tags=["Models"])
+api_router.include_router(experiments.router, prefix="/experiments", tags=["Experiments"])
+api_router.include_router(results.router,     prefix="/results",     tags=["Results"])
+api_router.include_router(admin.router,       prefix="/admin",       tags=["Admin"])
+api_router.include_router(dashboard.router,   prefix="/dashboard",   tags=["Dashboard"])

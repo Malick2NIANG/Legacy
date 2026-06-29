@@ -1,0 +1,61 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background-color: #F4F7F5;
+  color: #111827;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Sidebar overlay (mobile) ── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 199;
+}
+@media (max-width: 767px) {
+  .sidebar-overlay.active { display: block; }
+}
+
+/* ── Tables responsives ── */
+@media (max-width: 767px) {
+  table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ── Login / Register split screen ── */
+@media (max-width: 767px) {
+  .auth-carousel { display: none !important; }
+  .auth-form-panel { width: 100% !important; min-height: 100vh; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .auth-carousel { flex: 0 0 40% !important; }
+  .auth-form-panel { width: 360px !important; }
+}
+
+/* ── Contenu principal (beside sidebar) ── */
+.main-content {
+  transition: margin-left 0.25s ease;
+}
+
+/* ── Grilles adaptatives ── */
+@media (max-width: 767px) {
+  .grid-auto { grid-template-columns: 1fr !important; }
+  .hide-mobile { display: none !important; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .grid-auto { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ── LandingPage ── */
+@media (max-width: 767px) {
+  .landing-hero-title  { font-size: 32px !important; }
+  .landing-grid-2      { grid-template-columns: 1fr !important; }
+  .landing-grid-3      { grid-template-columns: 1fr !important; }
+  .landing-grid-4      { grid-template-columns: 1fr 1fr !important; }
+  .landing-padding     { padding-left: 20px !important; padding-right: 20px !important; }
+  .landing-header-nav  { display: none !important; }
+  .landing-burger      { display: flex !important; }
+  .landing-stats-flex  { flex-wrap: wrap !important; gap: 24px !important; justify-content: center !important; }
+  .landing-pipeline    { flex-direction: column !import

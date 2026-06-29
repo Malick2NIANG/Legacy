@@ -1,0 +1,35 @@
+# Framework web
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+
+# ORM et migrations
+sqlalchemy==2.0.27
+alembic==1.13.1
+psycopg2-binary==2.9.9
+
+# Validation données
+pydantic==2.6.3
+pydantic-settings==2.2.1
+email-validator==2.1.1
+
+# Authentification
+python-jose[cryptography]==3.3.0
+passlib==1.7.4
+bcrypt==4.0.1
+python-multipart==0.0.9
+
+# Tâches asynchrones
+celery==5.3.6
+redis==5.0.1
+
+# Stockage objet (MinIO / S3)
+minio==7.2.3
+
+# Machine Learning
+scikit-learn==1.4.2
+numpy==1.26.4
+pandas==2.2.1
+
+# Deep Learning (optionnel)
+# tensorflow==2.16.0
+# torch==2.2.1

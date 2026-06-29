@@ -1,0 +1,25 @@
+# Environnement & secrets
+.env
+*.env
+!*.env.example
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Logs & temp
+*.log
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+.claude/
