@@ -2,7 +2,7 @@
  * Carte dataset avec apercu colonnes.
  */
 import React, { useState, useCallback } from 'react'
-import { Database, Trash2, Download, HardDrive, Calendar, Eye, X, Table2, Archive, ImageIcon, Music, Video } from 'lucide-react'
+import { Database, Trash2, Download, HardDrive, Calendar, Eye, X, Table2, Archive, ImageIcon, Music, Video, Server } from 'lucide-react'
 import datasetService from '../../services/datasetService'
 import { useToast } from '../../context/ToastContext'
 
@@ -113,6 +113,17 @@ function PreviewModal({ dataset, onClose }) {
             <X size={18} />
           </button>
         </div>
+
+        {/* Chemin MinIO */}
+        {dataset.minio_key && (
+          <div style={{ padding: '10px 24px', backgroundColor: '#F8FAFF', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Server size={13} color='#6366F1' />
+            <span style={{ fontSize: 11, color: '#6B7280' }}>Stocké dans MinIO :</span>
+            <code style={{ fontSize: 11, color: '#4361EE', backgroundColor: '#EEF2FF', padding: '2px 8px', borderRadius: 5, fontFamily: 'monospace' }}>
+              datasets / {dataset.minio_key.replace(/\//g, ' / ')}
+            </code>
+          </div>
+        )}
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>

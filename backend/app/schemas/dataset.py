@@ -16,6 +16,7 @@ class DatasetRead(BaseModel):
     id: int
     name: str
     filename: str
+    minio_key: Optional[str]
     file_size: Optional[int]
     mimetype: Optional[str]
     owner_id: int
