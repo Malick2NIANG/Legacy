@@ -36,12 +36,11 @@ async def upload_dataset(
     svc     = DatasetService(db)
     version = svc.get_next_version(name, current_user.id)
 
-    # Chemin lisible : <nom>/<fichier_vN.ext>
-    # ex : audio_sons/audio_sons_v1.zip
-    safe_name = re.sub(r'[^\w\-]', '_', name)
+    # Structure plate : <nom_vN.ext> directement à la racine du bucket
+    # ex : audio_sons_v1.zip, classification_tabulaire_v2.csv
     parts     = file.filename.rsplit('.', 1)
     versioned = f"{parts[0]}_v{version}.{parts[1]}" if len(parts) == 2 else f"{file.filename}_v{version}"
-    object_name = f"{safe_name}/{versioned}"
+    object_name = versioned
 
     StorageService().upload(
         file_data=file_data,
