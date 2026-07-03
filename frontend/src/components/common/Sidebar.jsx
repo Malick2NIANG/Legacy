@@ -114,6 +114,76 @@ function SidebarTooltip({ hovered }) {
   )
 }
 
+// ── Motif neuronal en arrière-plan ───────────────────────────────────────────
+function NeuralBackground() {
+  const layers = [
+    { x: 22,  ys: [55, 155, 270, 390, 520] },
+    { x: 78,  ys: [30, 110, 205, 315, 430, 545] },
+    { x: 138, ys: [70, 175, 295, 415, 535] },
+    { x: 188, ys: [45, 150, 260, 380, 500] },
+    { x: 215, ys: [100, 255, 420] },
+  ]
+
+  const edges = []
+  for (let li = 0; li < layers.length - 1; li++) {
+    const curr = layers[li], next = layers[li + 1]
+    curr.ys.forEach(y1 => {
+      const sorted = [...next.ys].sort((a, b) => Math.abs(a - y1) - Math.abs(b - y1))
+      sorted.slice(0, 2).forEach(y2 => edges.push({ x1: curr.x, y1, x2: next.x, y2 }))
+    })
+  }
+
+  const ACTIVE = new Set(['1-2', '2-2', '3-2'])
+
+  return (
+    <svg
+      aria-hidden="true"
+      style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none', overflow:'hidden', zIndex:0 }}
+      viewBox="0 0 220 580"
+      preserveAspectRatio="xMidYMid slice"
+    >
+      <defs>
+        <radialGradient id="ng" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#00853F" stopOpacity="0.45"/>
+          <stop offset="100%" stopColor="#00853F" stopOpacity="0"/>
+        </radialGradient>
+        <radialGradient id="ngG" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#E8A020" stopOpacity="0.3"/>
+          <stop offset="100%" stopColor="#E8A020" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+
+      {/* Connexions synaptiques */}
+      {edges.map((e, i) => (
+        <line key={`e${i}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
+          stroke="rgba(255,255,255,0.065)" strokeWidth="0.65" />
+      ))}
+
+      {/* Neurones */}
+      {layers.flatMap((l, li) =>
+        l.ys.map((y, ni) => {
+          const active = ACTIVE.has(`${li}-${ni}`)
+          const gold   = li === 0 && ni === 2
+          return (
+            <g key={`n${li}-${ni}`}>
+              {active && <circle cx={l.x} cy={y} r={9}  fill="url(#ng)"  />}
+              {gold   && <circle cx={l.x} cy={y} r={7}  fill="url(#ngG)" />}
+              <circle
+                cx={l.x} cy={y}
+                r={active ? 3.8 : gold ? 3.2 : 2.4}
+                fill={active ? 'rgba(74,222,128,0.65)' : gold ? 'rgba(232,160,32,0.55)' : 'rgba(255,255,255,0.11)'}
+              />
+              {(active || gold) && (
+                <circle cx={l.x} cy={y} r={1.3} fill="rgba(255,255,255,0.85)" />
+              )}
+            </g>
+          )
+        })
+      )}
+    </svg>
+  )
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const { isOpen, toggle, close } = useSidebar()
@@ -163,11 +233,10 @@ export default function Sidebar() {
         width: sidebarWidth,
         backgroundColor: '#1B4D2E',
         backgroundImage: `
-          radial-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
-          radial-gradient(ellipse at 60% 0%, rgba(0,133,63,0.25) 0%, transparent 55%),
-          radial-gradient(ellipse at 20% 100%, rgba(232,160,32,0.08) 0%, transparent 50%)
+          radial-gradient(ellipse at 60% 0%, rgba(0,133,63,0.22) 0%, transparent 55%),
+          radial-gradient(ellipse at 20% 100%, rgba(232,160,32,0.07) 0%, transparent 50%)
         `,
-        backgroundSize: '18px 18px, 100% 100%, 100% 100%',
+        backgroundSize: '100% 100%, 100% 100%',
         display: 'flex', flexDirection: 'column',
         fontFamily: 'Inter, Segoe UI, sans-serif',
         zIndex: 200,
@@ -175,6 +244,9 @@ export default function Sidebar() {
         transition: 'width 0.25s ease, transform 0.25s ease',
         overflow: 'hidden',
       }}>
+
+        {/* Motif neuronal SVG */}
+        <NeuralBackground />
 
         {/* Logo */}
         <div style={{
