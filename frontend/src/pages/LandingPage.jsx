@@ -1,5 +1,5 @@
 /**
- * Landing page — Legacy.
+ * Landing page, Legacy.
  * Ton professionnel et inclusif. Identité africaine dosée, ambition universelle.
  * Palette : vert #00853F, or #E8A020, fond sombre #091A0C.
  */
@@ -10,7 +10,7 @@ import {
   Eye, Upload, Play, CheckCircle, ArrowRight,
   Globe, Lock, Users, Layers, Menu, X,
 } from 'lucide-react'
-import { BRAND_NAME, BRAND_FONT } from '../brand'
+import { BRAND_NAME, BRAND_FONT, BRAND_GLOW } from '../brand'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const DARK   = '#091A0C'
@@ -26,43 +26,43 @@ const BORDER = '#1A3A20'
 const FEATURES = [
   {
     icon: <Database size={20} color={GREEN} />,
-    title: 'Stockage sécurisé',
-    desc: 'Import CSV, JSON, Parquet, Excel. Chaque utilisateur accède uniquement à ses propres données via MinIO S3.',
+    title: 'Stockage multi-formats',
+    desc: 'Import CSV pour données tabulaires, ZIP annoté pour images, audio et vidéo. Versionnage automatique par dataset. Isolement strict par utilisateur via MinIO S3.',
   },
   {
     icon: <Brain size={20} color={GOLD} />,
-    title: 'Modèles ML & IA Générative',
-    desc: 'Sklearn, HuggingFace, RAG. Versionnage automatique — modèle initial, optimisé, puis affiné.',
+    title: 'Machine Learning & Deep Learning',
+    desc: 'Sklearn (5 algorithmes), TensorFlow et PyTorch sur données tabulaires. Versionnage des modèles à chaque ré-entraînement. Exports .pkl, .h5, .pt.',
   },
   {
     icon: <Eye size={20} color='#60A5FA' />,
     title: 'Computer Vision',
-    desc: 'Classification, détection d\'objets, segmentation sémantique et d\'instances sur vos propres images.',
+    desc: 'Classification d\'images à partir d\'un ZIP annoté par classe. Pipeline RandomForest sur features pixels (64×64). Export .pkl.',
+  },
+  {
+    icon: <Zap size={20} color='#A78BFA' />,
+    title: 'Audio & Vidéo',
+    desc: 'Pipeline audio via features MFCC (librosa). Pipeline vidéo par extraction de frames (OpenCV). Import ZIP structuré par classe, export .pkl.',
   },
   {
     icon: <BarChart2 size={20} color={GREEN2} />,
     title: 'Visualisation temps réel',
-    desc: 'Accuracy, F1, matrice de confusion. Courbes d\'entraînement actualisées en direct via Celery.',
+    desc: 'Accuracy, F1, Precision, Recall. Matrice de confusion, courbe d\'apprentissage, comparaison multi-expériences. Suivi Celery en direct.',
   },
   {
     icon: <Globe size={20} color={GOLD} />,
-    title: 'HuggingFace & RAG',
-    desc: 'Connexion aux modèles pré-entraînés via clé API. Retrieval Augmented Generation avec base de connaissances vectorielle.',
+    title: 'HuggingFace',
+    desc: 'Couplage avec l\'Inference API HuggingFace pour classification de texte. Clé API configurable par modèle. RAG (vectorielle DB) en feuille de route.',
   },
   {
     icon: <Shield size={20} color='#F87171' />,
     title: 'Sécurité CIAN',
-    desc: 'Confidentialité, Intégrité, Authenticité, Non-répudiation. JWT, bcrypt, chiffrement des données au repos.',
-  },
-  {
-    icon: <Upload size={20} color='#A78BFA' />,
-    title: 'Notebooks & étiquetage',
-    desc: 'Upload de notebooks Jupyter, outils d\'étiquetage intégrés pour vos datasets d\'images et de texte.',
+    desc: 'Confidentialité, Intégrité, Authenticité, Non-répudiation. JWT, bcrypt, cloisonnement des données au repos.',
   },
   {
     icon: <Cpu size={20} color={MUTED} />,
     title: 'Calcul adaptatif',
-    desc: 'Exécution CPU native. Bascule automatique sur GPU (CUDA) si disponible. Optimisé pour ressources contraintes.',
+    desc: 'Exécution CPU native. Architecture prête pour basculer sur GPU (CUDA) si disponible. Déployable sur serveur local ou distant via Docker.',
   },
 ]
 
@@ -73,6 +73,16 @@ const PIPELINE = [
   { icon: <Play size={15} />,        label: 'Entraînement'  },
   { icon: <BarChart2 size={15} />,   label: 'Visualisation' },
   { icon: <Globe size={15} />,       label: 'Déploiement'   },
+]
+
+const ML_PIPELINES = [
+  { label:'Sklearn',       sub:'CSV → .pkl',       color:'#00853F', bg:'#E6F4ED' },
+  { label:'TensorFlow',    sub:'CSV → .h5',        color:'#FF6F00', bg:'#FFF3E0' },
+  { label:'PyTorch',       sub:'CSV → .pt',        color:'#EE4C2C', bg:'#FEF2F0' },
+  { label:'Computer Vision', sub:'ZIP → .pkl',    color:'#2563EB', bg:'#EFF6FF' },
+  { label:'Audio',         sub:'ZIP → .pkl',       color:'#7C3AED', bg:'#F5F3FF' },
+  { label:'Vidéo',         sub:'ZIP → .pkl',       color:'#0891B2', bg:'#ECFEFF' },
+  { label:'HuggingFace',   sub:'CSV → métriques',  color:'#D97706', bg:'#FFFBEB' },
 ]
 
 const PILLARS = [
@@ -89,16 +99,150 @@ const PILLARS = [
   {
     icon: <Layers size={18} color='#60A5FA' />,
     title: 'Pipeline unifié',
-    desc: 'De la collecte au déploiement dans un seul outil — sans jongler entre Colab, Weights & Biases, et Kaggle.',
+    desc: 'De la collecte au déploiement dans un seul outil, sans jongler entre Colab, Weights & Biases, et Kaggle.',
   },
 ]
 
 const TECH = [
   'FastAPI', 'React', 'PostgreSQL', 'Redis',
-  'MinIO', 'Celery', 'Docker', 'HuggingFace', 'scikit-learn', 'PyTorch',
+  'MinIO', 'Celery', 'Docker', 'HuggingFace', 'scikit-learn', 'TensorFlow', 'PyTorch',
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+
+// ── Background : motifs tech & africains ─────────────────────────────────────
+function BackgroundPattern() {
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:0,pointerEvents:'none',overflow:'hidden'}}>
+      <svg width="100%" height="100%" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg" style={{position:'absolute',inset:0}}>
+        <defs>
+          {/* Hexagone tech */}
+          <pattern id="hex" x="0" y="0" width="60" height="52" patternUnits="userSpaceOnUse">
+            <polygon points="30,2 58,17 58,47 30,62 2,47 2,17"
+              fill="none" stroke="#00853F" strokeWidth="0.5" opacity="0.18"/>
+          </pattern>
+          {/* Kente diagonale */}
+          <pattern id="kente" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="32" height="8"  fill="#E8A020" opacity="0.07"/>
+            <rect y="8"  width="32" height="8" fill="#00853F" opacity="0.07"/>
+            <rect y="16" width="32" height="8" fill="#E8A020" opacity="0.04"/>
+            <rect y="24" width="32" height="8" fill="#00853F" opacity="0.04"/>
+          </pattern>
+        </defs>
+
+        {/* Hex grid, centre */}
+        <rect width="1440" height="900" fill="url(#hex)" opacity="0.6"/>
+
+        {/* Kente diagonal, coin haut-droit */}
+        <rect x="900" y="0" width="540" height="360" fill="url(#kente)"/>
+        {/* Kente diagonal, coin bas-gauche */}
+        <rect x="0" y="560" width="480" height="340" fill="url(#kente)"/>
+
+        {/* ── Circuit board haut-gauche ── */}
+        <g opacity="0.22" stroke="#00853F" strokeWidth="1" fill="none">
+          <line x1="20" y1="80"  x2="200" y2="80"/>
+          <line x1="200" y1="80" x2="200" y2="140"/>
+          <line x1="200" y1="140" x2="320" y2="140"/>
+          <line x1="60" y1="80"  x2="60"  y2="180"/>
+          <line x1="60" y1="180" x2="160" y2="180"/>
+          <line x1="160" y1="140" x2="160" y2="220"/>
+          <line x1="160" y1="220" x2="280" y2="220"/>
+          <line x1="280" y1="140" x2="280" y2="260"/>
+          <line x1="20" y1="260" x2="280" y2="260"/>
+          <line x1="100" y1="180" x2="100" y2="300"/>
+          <line x1="100" y1="300" x2="240" y2="300"/>
+          {/* noeuds */}
+          <circle cx="200" cy="80"  r="3" fill="#00853F"/>
+          <circle cx="60"  cy="80"  r="3" fill="#00853F"/>
+          <circle cx="160" cy="140" r="3" fill="#E8A020"/>
+          <circle cx="280" cy="140" r="3" fill="#00853F"/>
+          <circle cx="100" cy="180" r="3" fill="#E8A020"/>
+          <circle cx="60"  cy="180" r="3" fill="#00853F"/>
+          <circle cx="280" cy="260" r="3" fill="#E8A020"/>
+          <circle cx="100" cy="300" r="3" fill="#00853F"/>
+          <circle cx="240" cy="300" r="3" fill="#E8A020"/>
+        </g>
+
+        {/* ── Circuit board bas-droit ── */}
+        <g opacity="0.22" stroke="#00853F" strokeWidth="1" fill="none" transform="translate(1160,580)">
+          <line x1="0"   y1="40"  x2="180" y2="40"/>
+          <line x1="180" y1="40"  x2="180" y2="120"/>
+          <line x1="40"  y1="40"  x2="40"  y2="140"/>
+          <line x1="40"  y1="140" x2="180" y2="140"/>
+          <line x1="100" y1="40"  x2="100" y2="80"/>
+          <line x1="100" y1="80"  x2="260" y2="80"/>
+          <line x1="260" y1="80"  x2="260" y2="160"/>
+          <circle cx="40"  cy="40"  r="3" fill="#E8A020"/>
+          <circle cx="180" cy="40"  r="3" fill="#00853F"/>
+          <circle cx="100" cy="80"  r="3" fill="#E8A020"/>
+          <circle cx="40"  cy="140" r="3" fill="#00853F"/>
+          <circle cx="260" cy="80"  r="3" fill="#00853F"/>
+        </g>
+
+        {/* ── Adinkra Nyame Dua (arbre de vie), centre-gauche ── */}
+        <g transform="translate(80,420)" opacity="0.12" stroke="#E8A020" strokeWidth="1.5" fill="none">
+          <circle cx="0" cy="0" r="38"/>
+          <circle cx="0" cy="0" r="24"/>
+          <circle cx="0" cy="0" r="10"/>
+          <line x1="0" y1="-38" x2="0"  y2="38"/>
+          <line x1="-38" y1="0" x2="38" y2="0"/>
+          <line x1="-27" y1="-27" x2="27" y2="27"/>
+          <line x1="27"  y1="-27" x2="-27" y2="27"/>
+        </g>
+
+        {/* ── Adinkra Sankofa (spirale), droite ── */}
+        <g transform="translate(1360,200)" opacity="0.12" stroke="#E8A020" strokeWidth="1.5" fill="none">
+          <circle cx="0" cy="0" r="36"/>
+          <path d="M0,-36 Q36,-36 36,0 Q36,36 0,36 Q-20,36 -28,18"/>
+          <circle cx="0" cy="0" r="8"/>
+          <circle cx="-28" cy="18" r="5" fill="#E8A020" opacity="0.3"/>
+        </g>
+
+        {/* ── Adinkra Gye Nyame (suprématie divine), bas-centre ── */}
+        <g transform="translate(720,820)" opacity="0.1" stroke="#00853F" strokeWidth="1.2" fill="none">
+          <ellipse cx="0" cy="0" rx="48" ry="24"/>
+          <ellipse cx="0" cy="0" rx="28" ry="14"/>
+          <line x1="-48" y1="0" x2="48"  y2="0"/>
+          <line x1="0"   y1="-24" x2="0" y2="24"/>
+          <path d="M-30,-8 Q-15,-20 0,-8 Q15,-20 30,-8"/>
+          <path d="M-30,8  Q-15,20  0,8  Q15,20  30,8"/>
+        </g>
+
+        {/* ── Losanges Kente, coins ── */}
+        <g opacity="0.15" fill="none" stroke="#E8A020" strokeWidth="0.8">
+          {/* coin haut-droit */}
+          <polygon points="1400,20 1420,50 1400,80 1380,50"/>
+          <polygon points="1360,20 1380,50 1360,80 1340,50"/>
+          <polygon points="1380,0  1400,30 1380,60 1360,30"/>
+          <polygon points="1380,60 1400,90 1380,120 1360,90"/>
+          {/* coin bas-gauche */}
+          <polygon points="40,820 60,850 40,880 20,850"/>
+          <polygon points="80,820 100,850 80,880 60,850"/>
+          <polygon points="60,800 80,830 60,860 40,830"/>
+          <polygon points="60,860 80,890 60,920 40,890"/>
+        </g>
+
+        {/* ── Points binaires / data ── */}
+        <g opacity="0.12" fill="#00853F">
+          {[...Array(24)].map((_,i)=>{
+            const x = 120 + (i%8)*160 + (Math.sin(i*2.5)*30)
+            const y = 440 + Math.floor(i/8)*180 + (Math.cos(i*1.8)*20)
+            return <circle key={i} cx={x} cy={y} r="1.5"/>
+          })}
+        </g>
+
+        {/* Dégradé masque pour que ça ne couvre pas le texte */}
+        <radialGradient id="centerFade" cx="50%" cy="40%" r="45%">
+          <stop offset="0%"   stopColor="#091A0C" stopOpacity="0.7"/>
+          <stop offset="100%" stopColor="#091A0C" stopOpacity="0"/>
+        </radialGradient>
+        <rect width="1440" height="900" fill="url(#centerFade)"/>
+      </svg>
+    </div>
+  )
+}
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -113,7 +257,9 @@ export default function LandingPage() {
     <div style={{
       fontFamily: 'Inter, Segoe UI, sans-serif',
       backgroundColor: DARK, color: CREAM, minHeight: '100vh',
+      position: 'relative',
     }}>
+      <BackgroundPattern/>
 
       {/* ── HEADER ── */}
       <header style={{
@@ -129,7 +275,7 @@ export default function LandingPage() {
           style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
           <img src="/Logo.png" alt="LEGACY" style={{ width: 34, height: 34, objectFit: 'contain' }} />
-          <span style={{ fontFamily: BRAND_FONT, fontSize: 16, fontWeight: 700, color: '#2D6A4F', letterSpacing: '3px' }}>
+          <span style={{ fontFamily: BRAND_FONT, fontSize: 16, fontWeight: 700, color: '#2D6A4F', letterSpacing: '3px', textShadow: BRAND_GLOW }}>
             {BRAND_NAME}
           </span>
         </button>
@@ -249,8 +395,8 @@ export default function LandingPage() {
           fontSize: 17, color: MUTED,
           maxWidth: 560, margin: '20px auto 40px', lineHeight: 1.75,
         }}>
-          Une plateforme complète et autonome — du stockage de données à la mise
-          en production de modèles IA — sans dépendances cloud externes.
+          Une plateforme complète et autonome, du stockage de données à la mise
+          en production de modèles IA, sans dépendances cloud externes.
         </p>
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -281,10 +427,10 @@ export default function LandingPage() {
           borderTop: `1px solid ${BORDER}`,
         }}>
           {[
-            { value: 'Sklearn',  sub: '+ HuggingFace + CV + RAG', color: GREEN },
-            { value: 'CPU/GPU', sub: 'Calcul adaptatif',          color: GOLD  },
-            { value: 'CIAN',    sub: 'Modèle de sécurité',        color: '#F87171' },
-            { value: '100%',    sub: 'Données sous contrôle',     color: CREAM },
+            { value: '7',       sub: 'Pipelines ML/DL',           color: GREEN },
+            { value: 'CPU/GPU', sub: 'Calcul adaptatif',           color: GOLD  },
+            { value: 'CIAN',    sub: 'Modèle de sécurité',         color: '#F87171' },
+            { value: '100%',    sub: 'Données sous contrôle',      color: CREAM },
           ].map(({ value, sub, color }) => (
             <div key={sub} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
@@ -373,6 +519,48 @@ export default function LandingPage() {
                   <ArrowRight size={15} color={BORDER} className="landing-pipeline-arrow" style={{ margin: '0 3px' }} />
                 )}
               </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── ML/DL PIPELINES ── */}
+      <section style={{
+        padding: '56px 48px',
+        borderTop: `1px solid ${BORDER}`,
+      }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <p style={{
+              fontSize: 11, fontWeight: 700, color: GREEN,
+              letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 10,
+            }}>7 Pipelines disponibles</p>
+            <h2 style={{ fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: '-0.5px', color: CREAM }}>
+              Choisissez votre type de modèle
+            </h2>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: 12,
+          }}>
+            {ML_PIPELINES.map(({ label, sub, color, bg }) => (
+              <div key={label} style={{
+                backgroundColor: CARD, borderRadius: 12,
+                padding: '16px 14px', border: `1px solid ${BORDER}`,
+                textAlign: 'center',
+              }}>
+                <div style={{
+                  display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                  backgroundColor: color, marginBottom: 10,
+                }} />
+                <div style={{ fontSize: 13, fontWeight: 700, color: CREAM, marginBottom: 5 }}>{label}</div>
+                <div style={{
+                  fontSize: 10, fontWeight: 600, color: color,
+                  backgroundColor: `${color}18`, borderRadius: 6,
+                  padding: '2px 8px', display: 'inline-block',
+                }}>{sub}</div>
+              </div>
             ))}
           </div>
         </div>
@@ -502,12 +690,12 @@ export default function LandingPage() {
               style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 20 }}
             >
               <img src="/Logo.png" alt="LEGACY" style={{ width: 36, height: 36, objectFit: 'contain' }} />
-              <span style={{ fontFamily: BRAND_FONT, fontSize: 17, fontWeight: 700, color: '#2D6A4F', letterSpacing: '3px' }}>
+              <span style={{ fontFamily: BRAND_FONT, fontSize: 17, fontWeight: 700, color: '#2D6A4F', letterSpacing: '3px', textShadow: BRAND_GLOW }}>
                 {BRAND_NAME}
               </span>
             </button>
             <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.75, marginBottom: 20 }}>
-              Plateforme Data Science & IA pour entraîner, visualiser et déployer vos modèles — sans infrastructure cloud.
+              Plateforme Data Science & IA pour entraîner, visualiser et déployer vos modèles, sans infrastructure cloud.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <svg width="28" height="18" viewBox="0 0 28 18" style={{ borderRadius: 3 }}>
@@ -565,7 +753,7 @@ export default function LandingPage() {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           maxWidth: 1200, margin: '0 auto', flexWrap: 'wrap', gap: 8,
         }}>
-          <p style={{ fontSize: 12, color: MUTED, margin: 0 }}>© 2026 Legacy. Tous droits réservés.</p>
+          <p style={{ fontSize: 12, color: MUTED, margin: 0 }}>© 2026 <span style={{ textShadow: BRAND_GLOW, color: '#7EC8A0' }}>Legacy</span>. Tous droits réservés.</p>
           <div style={{ display: 'flex', gap: 24 }}>
             <Link to="/confidentialite" className="footer-link" style={{ fontSize: 12, color: MUTED, textDecoration: 'none' }}>Confidentialité</Link>
             <Link to="/conditions" className="footer-link" style={{ fontSize: 12, color: MUTED, textDecoration: 'none' }}>Conditions d'utilisation</Link>

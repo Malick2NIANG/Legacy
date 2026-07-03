@@ -18,3 +18,4 @@ class Dataset(Base):
     minio_key = Column(String, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    version = Column(Integer, nullable=False, default=1)

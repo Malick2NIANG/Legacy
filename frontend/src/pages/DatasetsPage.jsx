@@ -31,7 +31,7 @@ function DatasetsPage() {
       <Navbar />
 
       <main className="main-content" style={mainStyle}>
-        <div style={{ padding: '32px' }}>
+        <div style={{ padding: '32px', flex: 1 }}>
 
           <div style={{ marginBottom: 28 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>

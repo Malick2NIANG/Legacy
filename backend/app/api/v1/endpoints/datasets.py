@@ -4,7 +4,7 @@ CRUD complet + upload vers MinIO + récupération de métadonnées.
 """
 import uuid
 from typing import List
-from fastapi import APIRouter, Depends, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.services.dataset_service import DatasetService
@@ -72,3 +72,32 @@ def delete_dataset(
     dataset = DatasetService(db).get_by_id(dataset_id, current_user.id)
     StorageService().delete(dataset.minio_key)
     DatasetService(db).delete(dataset_id, current_user.id)
+
+
+@router.get("/{dataset_id}/preview")
+def preview_dataset(
+    dataset_id: int,
+    rows: int = 5,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Retourne un apercu du dataset : colonnes, types, nb lignes, echantillon."""
+    import io, pandas as pd
+    from app.services.storage_service import StorageService
+    dataset = DatasetService(db).get_by_id(dataset_id, current_user.id)
+    try:
+        storage  = StorageService()
+        response = storage.client.get_object(storage.bucket, dataset.minio_key)
+        df = pd.read_csv(io.BytesIO(response.read()))
+        response.close()
+        return {
+            "row_count":  int(len(df)),
+            "col_count":  int(len(df.columns)),
+            "columns":    [
+                {"name": col, "dtype": str(df[col].dtype), "null_count": int(df[col].isna().sum())}
+                for col in df.columns
+            ],
+            "sample": df.head(rows).fillna("").astype(str).to_dict(orient="records"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Impossible de lire le dataset: {e}")

@@ -1,6 +1,5 @@
 /**
- * Service de gestion des expériences.
- * Lance les entraînements, poll le statut et récupère les résultats.
+ * Service de gestion des experiences.
  */
 import api from './api'
 
@@ -30,6 +29,10 @@ const experimentService = {
       responseType: 'blob',
     })
     return response.data
+  },
+
+  delete: async (id) => {
+    await api.delete(`/experiments/${id}`)
   },
 }
 

@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Database, FlaskConical, Brain, BarChart2,
-  ChevronLeft, ChevronRight, Users,
+  ChevronLeft, ChevronRight, Users, FileText, PieChart,
 } from 'lucide-react'
-import { BRAND_NAME, BRAND_FONT } from '../../brand'
+import { BRAND_NAME, BRAND_FONT, BRAND_GLOW } from '../../brand'
 import { useSidebar } from '../../context/SidebarContext'
 import useResponsive from '../../hooks/useResponsive'
 import useAuthStore from '../../store/authStore'
@@ -18,7 +19,9 @@ const GENERAL_ITEMS = [
 ]
 
 const ADMIN_ITEMS = [
-  { to: '/admin', label: 'Utilisateurs', Icon: Users },
+  { to: '/admin/stats', label: 'Statistiques',    Icon: PieChart              },
+  { to: '/admin',       label: 'Utilisateurs',    Icon: Users,    end: true   },
+  { to: '/admin/audit', label: "Journal d'audit", Icon: FileText              },
 ]
 
 // ── Label de section ──────────────────────────────────────────────────────────
@@ -37,15 +40,21 @@ function SectionLabel({ label, visible }) {
 }
 
 // ── Item de navigation ────────────────────────────────────────────────────────
-function NavItem({ to, label, Icon, isOpen, isDesktop, isMobile, isTablet, close, hoveredItem, setHoveredItem }) {
+function NavItem({ to, label, Icon, end, isOpen, isDesktop, isMobile, isTablet, close, setHovered }) {
   return (
     <div
       style={{ position: 'relative' }}
-      onMouseEnter={() => setHoveredItem(to)}
-      onMouseLeave={() => setHoveredItem(null)}
+      onMouseEnter={(e) => {
+        if (isDesktop && !isOpen) {
+          const rect = e.currentTarget.getBoundingClientRect()
+          setHovered({ to, label, y: rect.top + rect.height / 2 })
+        }
+      }}
+      onMouseLeave={() => setHovered(null)}
     >
       <NavLink
         to={to}
+        end={end}
         onClick={(isMobile || isTablet) ? close : undefined}
         style={({ isActive }) => ({
           display: 'flex', alignItems: 'center',
@@ -64,30 +73,44 @@ function NavItem({ to, label, Icon, isOpen, isDesktop, isMobile, isTablet, close
         <Icon size={17} style={{ flexShrink: 0 }} />
         {(isOpen || !isDesktop) && <span>{label}</span>}
       </NavLink>
-
-      {/* Tooltip mini-mode */}
-      {isDesktop && !isOpen && hoveredItem === to && (
-        <div style={{
-          position: 'fixed',
-          left: 72, top: 'auto',
-          backgroundColor: '#111827', color: '#ffffff',
-          fontSize: 12, fontWeight: 500,
-          padding: '5px 10px', borderRadius: 6,
-          whiteSpace: 'nowrap', pointerEvents: 'none',
-          zIndex: 400, boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          marginTop: -14,
-        }}>
-          {label}
-          <div style={{
-            position: 'absolute', left: -5, top: '50%', transform: 'translateY(-50%)',
-            width: 0, height: 0,
-            borderTop: '5px solid transparent',
-            borderBottom: '5px solid transparent',
-            borderRight: '5px solid #111827',
-          }} />
-        </div>
-      )}
     </div>
+  )
+}
+
+// ── Tooltip portail (hors de l'aside pour éviter le clipping) ────────────────
+function SidebarTooltip({ hovered }) {
+  if (!hovered) return null
+  return createPortal(
+    <div style={{
+      position: 'fixed',
+      left: 68,
+      top: hovered.y,
+      transform: 'translateY(-50%)',
+      backgroundColor: '#111827',
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: 500,
+      padding: '5px 11px',
+      borderRadius: 6,
+      whiteSpace: 'nowrap',
+      pointerEvents: 'none',
+      zIndex: 9999,
+      boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
+    }}>
+      {/* Flèche gauche */}
+      <div style={{
+        position: 'absolute',
+        right: '100%',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: 0, height: 0,
+        borderTop: '5px solid transparent',
+        borderBottom: '5px solid transparent',
+        borderRight: '5px solid #111827',
+      }} />
+      {hovered.label}
+    </div>,
+    document.body
   )
 }
 
@@ -96,13 +119,13 @@ export default function Sidebar() {
   const { isOpen, toggle, close } = useSidebar()
   const { isMobile, isTablet }    = useResponsive()
   const { user }                  = useAuthStore()
-  const [hoveredItem, setHoveredItem] = useState(null)
+  const [hovered, setHovered]     = useState(null) // { to, label, y }
 
   const isDesktop    = !isMobile && !isTablet
   const sidebarWidth = isDesktop ? (isOpen ? 220 : 60) : 220
-  const showLabels   = isOpen || !isDesktop   // masquer labels en mini-mode
+  const showLabels   = isOpen || !isDesktop
 
-  const navItemProps = { isOpen, isDesktop, isMobile, isTablet, close, hoveredItem, setHoveredItem }
+  const navItemProps = { isOpen, isDesktop, isMobile, isTablet, close, setHovered }
 
   return (
     <>
@@ -110,6 +133,9 @@ export default function Sidebar() {
       {(isMobile || isTablet) && isOpen && (
         <div className="sidebar-overlay active" onClick={close} />
       )}
+
+      {/* Tooltip flottant, rendu dans document.body via portail */}
+      <SidebarTooltip hovered={isDesktop && !isOpen ? hovered : null} />
 
       {/* ── Flèche collapse flottante ── */}
       {isDesktop && (
@@ -160,7 +186,7 @@ export default function Sidebar() {
           {(isOpen || !isDesktop) && (
             <span style={{
               fontFamily: BRAND_FONT, fontSize: 15, fontWeight: 700,
-              color: '#E8A020', letterSpacing: '2px', whiteSpace: 'nowrap',
+              color: '#E8A020', letterSpacing: '2px', whiteSpace: 'nowrap', textShadow: BRAND_GLOW,
             }}>
               {BRAND_NAME}
             </span>
@@ -170,23 +196,22 @@ export default function Sidebar() {
         {/* Navigation */}
         <nav style={{ flex: 1, padding: '8px 0', overflowY: 'auto', overflowX: 'hidden' }}>
 
-          {/* ── Section Général ── */}
-          <SectionLabel label="Général" visible={showLabels} />
+          {/* Section Général, label visible admins seulement */}
+          <SectionLabel label="Général" visible={showLabels && !!user?.is_admin} />
           {GENERAL_ITEMS.map(({ to, label, Icon }) => (
             <NavItem key={to} to={to} label={label} Icon={Icon} {...navItemProps} />
           ))}
 
-          {/* ── Section Administration (admin uniquement) ── */}
+          {/* Section Administration (admin uniquement) */}
           {user?.is_admin && (
             <>
-              {/* Séparateur */}
               <div style={{
                 margin: '10px 16px 0',
                 borderTop: '1px solid rgba(255,255,255,0.08)',
               }} />
               <SectionLabel label="Administration" visible={showLabels} />
-              {ADMIN_ITEMS.map(({ to, label, Icon }) => (
-                <NavItem key={to} to={to} label={label} Icon={Icon} {...navItemProps} />
+              {ADMIN_ITEMS.map(({ to, label, Icon, end }) => (
+                <NavItem key={to} to={to} label={label} Icon={Icon} end={end} {...navItemProps} />
               ))}
             </>
           )}

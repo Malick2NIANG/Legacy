@@ -1,10 +1,10 @@
 /**
- * RegisterPage — inscription en 4 étapes (stepper sur une seule page)
+ * RegisterPage, inscription en 4 étapes (stepper sur une seule page)
  */
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, User, Globe, BarChart2, Lightbulb, CheckCircle } from 'lucide-react'
-import { BRAND_NAME, BRAND_GREEN, BRAND_FONT } from '../brand'
+import { BRAND_NAME, BRAND_GLOW, BRAND_GREEN, BRAND_FONT } from '../brand'
 import AuthCarousel from '../components/auth/AuthCarousel'
 import api from '../services/api'
 import { useToast } from '../context/ToastContext'
@@ -203,7 +203,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Étape 1 — Compte */}
+          {/* Étape 1, Compte */}
           {step===1 && (
             <div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
@@ -218,7 +218,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Étape 2 — Profil */}
+          {/* Étape 2, Profil */}
           {step===2 && (
             <div>
               <SelectField label="Pays" value={form.country} onChange={set('country')} options={COUNTRIES} required/>
@@ -233,7 +233,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Étape 3 — Usage */}
+          {/* Étape 3, Usage */}
           {step===3 && (
             <div>
               <div style={{ marginBottom:12 }}>
@@ -250,7 +250,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Étape 4 — Découverte */}
+          {/* Étape 4, Découverte */}
           {step===4 && (
             <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
               <p style={{ fontSize:12, fontWeight:600, color:'#374151', margin:'0 0 3px' }}>

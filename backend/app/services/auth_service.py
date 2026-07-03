@@ -1,6 +1,6 @@
 """
 Service d'authentification.
-Encapsule la logique métier de connexion, d'inscription et de vérification des credentials.
+Encapsule la logique metier de connexion, inscription et verification des credentials.
 """
 from sqlalchemy.orm import Session
 from app.models.user import User
@@ -12,7 +12,7 @@ class AuthService:
         self.db = db
 
     def authenticate(self, email: str, password: str):
-        """Vérifie les credentials et retourne l'utilisateur ou None."""
+        """Verifie les credentials et retourne l'utilisateur ou None."""
         user = self.db.query(User).filter(User.email == email).first()
         if not user or not verify_password(password, user.hashed_password):
             return None
@@ -30,16 +30,15 @@ class AuthService:
         usage_reasons: list = None,
         ml_level: str = None,
         discovery_source: str = None,
-        # compat legacy
         full_name: str = None,
     ) -> User:
-        """Crée un nouvel utilisateur avec le mot de passe hashé et son profil démographique."""
+        """Cree un nouvel utilisateur avec le mot de passe hashe et son profil demographique."""
         from fastapi import HTTPException, status
         existing = self.db.query(User).filter(User.email == email).first()
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Un compte avec cet email existe déjà",
+                detail="Un compte avec cet email existe deja",
             )
         computed_full_name = f"{first_name or ''} {last_name or ''}".strip() or full_name
         user = User(
@@ -54,21 +53,12 @@ class AuthService:
             usage_reasons=usage_reasons,
             ml_level=ml_level,
             discovery_source=discovery_source,
-            is_admin=False,
         )
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
         return user
 
-    def login(self, email: str, password: str) -> str:
-        """Authentifie et retourne un token JWT."""
-        from fastapi import HTTPException, status
-        user = self.authenticate(email, password)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Email ou mot de passe incorrect",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    def create_token(self, user: User) -> str:
+        """Cree un JWT pour l'utilisateur."""
         return create_access_token(subject=str(user.id))

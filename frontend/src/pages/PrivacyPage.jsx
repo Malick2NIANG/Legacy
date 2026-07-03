@@ -59,7 +59,7 @@ export default function PrivacyPage() {
         <Section icon={<Eye size={18} />} title="Données collectées">
           <p>Nous collectons uniquement les données nécessaires au bon fonctionnement de la plateforme :</p>
           <ul style={{ paddingLeft: 20, marginTop: 12 }}>
-            <li style={{ marginBottom: 8 }}><strong style={{ color: CREAM }}>Compte :</strong> nom complet, adresse e-mail, mot de passe (haché avec Bcrypt — jamais stocké en clair).</li>
+            <li style={{ marginBottom: 8 }}><strong style={{ color: CREAM }}>Compte :</strong> nom complet, adresse e-mail, mot de passe (haché avec Bcrypt, jamais stocké en clair).</li>
             <li style={{ marginBottom: 8 }}><strong style={{ color: CREAM }}>Fichiers :</strong> datasets et modèles que vous importez, stockés dans un espace isolé et accessible uniquement par vous.</li>
             <li style={{ marginBottom: 8 }}><strong style={{ color: CREAM }}>Logs :</strong> journaux d'activité techniques (connexions, erreurs) à des fins de sécurité.</li>
           </ul>

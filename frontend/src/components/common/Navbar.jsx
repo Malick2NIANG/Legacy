@@ -1,20 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, KeyRound, ChevronDown, Menu, Lock, Eye, EyeOff, AlertCircle, CheckCircle, X, Clock } from 'lucide-react'
+import { LogOut, KeyRound, ChevronDown, Menu, Lock, Eye, EyeOff, AlertCircle, CheckCircle, X, Clock, UserCircle2 } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
-import { BRAND_NAME, BRAND_GREEN, BRAND_FONT } from '../../brand'
+import { BRAND_NAME, BRAND_GREEN, BRAND_FONT, BRAND_GLOW } from '../../brand'
 import { useSidebar } from '../../context/SidebarContext'
 import useResponsive from '../../hooks/useResponsive'
 import api from '../../services/api'
+import authService from '../../services/authService'
 import { useToast } from '../../context/ToastContext'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// -- Helpers ------------------------------------------------------------------
 function getInitials(user) {
-  if (!user) return '?'
-  const name = user.full_name || user.email || ''
-  const parts = name.trim().split(' ')
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return name.slice(0, 2).toUpperCase()
+  if (!user) return null
+  // Priorité : first_name + last_name (champs individuels fiables)
+  const f = (user.first_name || '').trim()
+  const l = (user.last_name  || '').trim()
+  if (f && l) return (f[0] + l[0]).toUpperCase()
+  if (f)      return f.slice(0, 2).toUpperCase()
+  if (l)      return l.slice(0, 2).toUpperCase()
+  // Fallback : full_name
+  const full = (user.full_name || '').trim()
+  if (full) {
+    const parts = full.split(' ')
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : full.slice(0, 2).toUpperCase()
+  }
+  // Dernier recours : email
+  return (user.email || '').slice(0, 2).toUpperCase() || null
 }
 function getRole(user) {
   if (!user) return ''
@@ -22,182 +35,133 @@ function getRole(user) {
 }
 
 const DAY_FR   = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
-const MONTH_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
+const MONTH_FR = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre']
 
 function formatDateFr(date) {
   return `${DAY_FR[date.getDay()]} ${date.getDate()} ${MONTH_FR[date.getMonth()]} ${date.getFullYear()}`
 }
 function formatTimeFr(date) {
-  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 function formatLastLogin(iso) {
   if (!iso) return null
   const d = new Date(iso)
-  return `${d.getDate()} ${MONTH_FR[d.getMonth()]} ${d.getFullYear()} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+  return `${d.getDate()} ${MONTH_FR[d.getMonth()]} ${d.getFullYear()} a ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
-// ── Horloge live ─────────────────────────────────────────────────────────────
+// -- LiveClock ----------------------------------------------------------------
 function LiveClock() {
   const [now, setNow] = useState(new Date())
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000)
+    const id = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(id)
   }, [])
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
-      <span style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', letterSpacing: '0.2px' }}>
-        {formatDateFr(now)}
-      </span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: '#1B4D2E', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.5px' }}>
-        {formatTimeFr(now)}
-      </span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{formatTimeFr(now)}</span>
+      <span style={{ fontSize: 11, color: '#6B7280' }}>{formatDateFr(now)}</span>
     </div>
   )
 }
 
-// ── Modal changement de mot de passe ─────────────────────────────────────────
+// -- ChangePasswordModal ------------------------------------------------------
 function ChangePasswordModal({ onClose }) {
   const toast = useToast()
-  const [form, setForm]     = useState({ old: '', new: '', confirm: '' })
-  const [show, setShow]     = useState({ old: false, new: false, confirm: false })
+  const [current, setCurrent] = useState('')
+  const [next,    setNext]    = useState('')
+  const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
+  const [error,   setError]   = useState('')
   const [success, setSuccess] = useState(false)
+  const [showC,   setShowC]   = useState(false)
+  const [showN,   setShowN]   = useState(false)
+  const [showCf,  setShowCf]  = useState(false)
 
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
-  const tog = k => () => setShow(s => ({ ...s, [k]: !s[k] }))
-
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault()
     setError('')
-    if (form.new !== form.confirm) return setError('Les deux nouveaux mots de passe ne sont pas identiques.')
-    if (form.new.length < 8) return setError('Le nouveau mot de passe doit faire au moins 8 caractères.')
+    if (next !== confirm) { setError('Les mots de passe ne correspondent pas.'); return }
+    if (next.length < 8)  { setError('Le mot de passe doit faire au moins 8 caracteres.'); return }
     setLoading(true)
     try {
-      await api.post('/auth/change-password', {
-        old_password: form.old,
-        new_password: form.new,
-      })
+      await api.post('/auth/change-password', { current_password: current, new_password: next })
       setSuccess(true)
-      toast.success('Votre mot de passe a bien été mis à jour.')
-      setTimeout(onClose, 1600)
+      toast.success('Mot de passe modifie avec succes.')
+      setTimeout(onClose, 1500)
     } catch (err) {
-      const msg = err?.response?.data?.detail === 'Mot de passe actuel incorrect.'
-        ? "L'ancien mot de passe saisi est incorrect."
-        : "Une erreur est survenue, veuillez réessayer."
-      setError(msg)
-      toast.error(msg)
-    } finally {
-      setLoading(false)
-    }
+      setError(err.response?.data?.detail || 'Erreur lors du changement.')
+    } finally { setLoading(false) }
   }
 
-  const INPUT = {
-    width: '100%', padding: '10px 36px 10px 12px', boxSizing: 'border-box',
-    borderRadius: 8, border: '1px solid #D6E8DC',
-    backgroundColor: '#F9FBFA', color: '#111827', fontSize: 14, outline: 'none',
+  const INPUT_STYLE = {
+    width: '100%', padding: '9px 42px 9px 14px', boxSizing: 'border-box',
+    border: '1px solid #E5E7EB', borderRadius: 8,
+    fontSize: 14, backgroundColor: '#F9FAFB', outline: 'none',
   }
-
-  const fields = [
-    { key: 'old',     label: 'Mot de passe actuel'     },
-    { key: 'new',     label: 'Nouveau mot de passe'     },
-    { key: 'confirm', label: 'Confirmer le nouveau'     },
-  ]
+  const EyeBtn = ({ show, toggle }) => (
+    <button type="button" onClick={toggle} style={{
+      position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+      background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2,
+    }}>
+      {show ? <EyeOff size={15}/> : <Eye size={15}/>}
+    </button>
+  )
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 500,
-      backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 16,
-    }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999,
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{
-        backgroundColor: '#fff', borderRadius: 14,
-        padding: '28px 28px 24px',
-        width: 'min(420px, 100%)',
-        boxShadow: '0 16px 48px rgba(27,77,46,0.18)',
-        border: '1px solid #D6E8DC',
+        backgroundColor: '#fff', borderRadius: 12, padding: 28,
+        width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
       }}>
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 9,
-              backgroundColor: '#E6F4ED',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <KeyRound size={17} color="#00853F" />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#111827' }}>Changer le mot de passe</h3>
-              <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>Renseignez votre ancien et nouveau mot de passe</p>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 4 }}>
-            <X size={18} />
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>
+            <Lock size={16} style={{ marginRight: 8, verticalAlign: 'middle' }}/>
+            Changer le mot de passe
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 4 }}>
+            <X size={18}/>
           </button>
         </div>
 
         {success ? (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <CheckCircle size={40} color="#00853F" style={{ marginBottom: 12 }} />
-            <p style={{ fontSize: 14, fontWeight: 600, color: '#111827', margin: 0 }}>Mot de passe mis à jour !</p>
+          <div style={{ textAlign: 'center', padding: '16px 0', color: BRAND_GREEN }}>
+            <CheckCircle size={32} style={{ marginBottom: 8 }}/>
+            <p style={{ margin: 0, fontWeight: 600 }}>Mot de passe modifie !</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit}>
-            {fields.map(({ key, label }) => (
-              <div key={key} style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
-                  {label}
-                </label>
+          <form onSubmit={submit}>
+            {error && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: '#FEF2F2',
+                border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px',
+                color: '#DC2626', fontSize: 13, marginBottom: 16 }}>
+                <AlertCircle size={14}/> {error}
+              </div>
+            )}
+            {[
+              { label: 'Mot de passe actuel',    val: current, set: setCurrent, show: showC,  toggle: () => setShowC(v=>!v)  },
+              { label: 'Nouveau mot de passe',   val: next,    set: setNext,    show: showN,  toggle: () => setShowN(v=>!v)  },
+              { label: 'Confirmer le nouveau',   val: confirm, set: setConfirm, show: showCf, toggle: () => setShowCf(v=>!v) },
+            ].map(({ label, val, set, show, toggle }) => (
+              <div key={label} style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>{label}</label>
                 <div style={{ position: 'relative' }}>
-                  <Lock size={14} color="#9CA3AF" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-                  <input
-                    type={show[key] ? 'text' : 'password'}
-                    value={form[key]}
-                    onChange={set(key)}
-                    required
-                    placeholder="••••••••"
-                    style={{ ...INPUT, paddingLeft: 36 }}
-                  />
-                  <button type="button" onClick={tog(key)} style={{
-                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2,
-                  }}>
-                    {show[key] ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
+                  <input type={show ? 'text' : 'password'} value={val} onChange={e => set(e.target.value)}
+                    required style={INPUT_STYLE} />
+                  <EyeBtn show={show} toggle={toggle}/>
                 </div>
               </div>
             ))}
-
-            {error && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                backgroundColor: '#FEF2F2', border: '1px solid #FECACA',
-                borderRadius: 8, padding: '9px 12px',
-                color: '#DC2626', fontSize: 13, marginBottom: 14,
-              }}>
-                <AlertCircle size={14} /> {error}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-              <button type="button" onClick={onClose} style={{
-                flex: 1, padding: '10px', borderRadius: 8,
-                border: '1px solid #D6E8DC', backgroundColor: 'transparent',
-                color: '#6B7280', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              }}>
-                Annuler
-              </button>
-              <button type="submit" disabled={loading} style={{
-                flex: 1, padding: '10px', borderRadius: 8, border: 'none',
-                backgroundColor: loading ? '#9CA3AF' : '#00853F',
-                color: '#fff', fontSize: 13, fontWeight: 600,
-                cursor: loading ? 'not-allowed' : 'pointer',
-              }}>
-                {loading ? 'Mise à jour…' : 'Confirmer'}
-              </button>
-            </div>
+            <button type="submit" disabled={loading} style={{
+              width: '100%', padding: 10, borderRadius: 8, border: 'none',
+              backgroundColor: loading ? '#9CA3AF' : BRAND_GREEN,
+              color: '#fff', fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
+              marginTop: 4,
+            }}>
+              {loading ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
           </form>
         )}
       </div>
@@ -205,171 +169,382 @@ function ChangePasswordModal({ onClose }) {
   )
 }
 
-// ── Navbar ────────────────────────────────────────────────────────────────────
+
+// -- EditProfileModal ---------------------------------------------------------
+function EditProfileModal({ user, onClose, onSaved }) {
+  const toast = useToast()
+  const [form, setForm] = useState({
+    first_name:       user?.first_name || '',
+    last_name:        user?.last_name  || '',
+    country:          user?.country    || '',
+    gender:           user?.gender     || 'unspecified',
+    age_range:        user?.age_range  || '',
+    ml_level:         user?.ml_level   || '',
+    discovery_source: user?.discovery_source || '',
+  })
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState('')
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      const updated = await authService.updateProfile(form)
+      toast.success('Profil mis a jour.')
+      onSaved(updated)
+      onClose()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erreur lors de la mise a jour.')
+    } finally { setLoading(false) }
+  }
+
+  const INPUT = {
+    width: '100%', padding: '9px 14px', boxSizing: 'border-box',
+    border: '1px solid #E5E7EB', borderRadius: 8,
+    fontSize: 14, backgroundColor: '#F9FAFB', outline: 'none',
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999,
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        backgroundColor: '#fff', borderRadius: 12, padding: 28,
+        width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>
+            <UserCircle2 size={16} style={{ marginRight: 8, verticalAlign: 'middle' }}/>
+            Modifier mon profil
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}>
+            <X size={18}/>
+          </button>
+        </div>
+
+        {error && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px',
+            color: '#DC2626', fontSize: 13, marginBottom: 16 }}>
+            <AlertCircle size={14}/> {error}
+          </div>
+        )}
+
+        <form onSubmit={submit}>
+          {[
+            { label: 'Prenom', key: 'first_name' },
+            { label: 'Nom',    key: 'last_name'  },
+          ].map(({ label, key }) => (
+            <div key={key} style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>{label}</label>
+              <input value={form[key]} onChange={e => set(key, e.target.value)} style={INPUT} />
+            </div>
+          ))}
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Pays</label>
+            <select value={form.country} onChange={e => set('country', e.target.value)} style={INPUT}>
+              <option value="">-- Selectionner --</option>
+              <option value="Afghanistan">Afghanistan</option>
+              <option value="Afrique du Sud">Afrique du Sud</option>
+              <option value="Albanie">Albanie</option>
+              <option value="Algerie">Algerie</option>
+              <option value="Allemagne">Allemagne</option>
+              <option value="Angola">Angola</option>
+              <option value="Arabie Saoudite">Arabie Saoudite</option>
+              <option value="Argentine">Argentine</option>
+              <option value="Australie">Australie</option>
+              <option value="Autriche">Autriche</option>
+              <option value="Belgique">Belgique</option>
+              <option value="Benin">Benin</option>
+              <option value="Bolivie">Bolivie</option>
+              <option value="Bresil">Bresil</option>
+              <option value="Burkina Faso">Burkina Faso</option>
+              <option value="Burundi">Burundi</option>
+              <option value="Cameroun">Cameroun</option>
+              <option value="Canada">Canada</option>
+              <option value="Chili">Chili</option>
+              <option value="Chine">Chine</option>
+              <option value="Colombie">Colombie</option>
+              <option value="Congo">Congo</option>
+              <option value="Cote d Ivoire">Cote d'Ivoire</option>
+              <option value="Danemark">Danemark</option>
+              <option value="Egypte">Egypte</option>
+              <option value="Espagne">Espagne</option>
+              <option value="Etats-Unis">Etats-Unis</option>
+              <option value="Ethiopie">Ethiopie</option>
+              <option value="Finlande">Finlande</option>
+              <option value="France">France</option>
+              <option value="Gabon">Gabon</option>
+              <option value="Ghana">Ghana</option>
+              <option value="Grece">Grece</option>
+              <option value="Guinee">Guinee</option>
+              <option value="Guinee-Bissau">Guinee-Bissau</option>
+              <option value="Haiti">Haiti</option>
+              <option value="Hongrie">Hongrie</option>
+              <option value="Inde">Inde</option>
+              <option value="Indonesie">Indonesie</option>
+              <option value="Iran">Iran</option>
+              <option value="Irak">Irak</option>
+              <option value="Irlande">Irlande</option>
+              <option value="Israël">Israel</option>
+              <option value="Italie">Italie</option>
+              <option value="Japon">Japon</option>
+              <option value="Jordanie">Jordanie</option>
+              <option value="Kenya">Kenya</option>
+              <option value="Liban">Liban</option>
+              <option value="Libye">Libye</option>
+              <option value="Madagascar">Madagascar</option>
+              <option value="Malawi">Malawi</option>
+              <option value="Mali">Mali</option>
+              <option value="Maroc">Maroc</option>
+              <option value="Mauritanie">Mauritanie</option>
+              <option value="Maurice">Maurice</option>
+              <option value="Mexique">Mexique</option>
+              <option value="Mozambique">Mozambique</option>
+              <option value="Niger">Niger</option>
+              <option value="Nigeria">Nigeria</option>
+              <option value="Norvege">Norvege</option>
+              <option value="Nouvelle-Zelande">Nouvelle-Zelande</option>
+              <option value="Pays-Bas">Pays-Bas</option>
+              <option value="Peru">Peru</option>
+              <option value="Philippines">Philippines</option>
+              <option value="Pologne">Pologne</option>
+              <option value="Portugal">Portugal</option>
+              <option value="Qatar">Qatar</option>
+              <option value="Republique Democratique du Congo">RD Congo</option>
+              <option value="Roumanie">Roumanie</option>
+              <option value="Royaume-Uni">Royaume-Uni</option>
+              <option value="Russie">Russie</option>
+              <option value="Rwanda">Rwanda</option>
+              <option value="Senegal">Senegal</option>
+              <option value="Sierra Leone">Sierra Leone</option>
+              <option value="Somalie">Somalie</option>
+              <option value="Soudan">Soudan</option>
+              <option value="Suede">Suede</option>
+              <option value="Suisse">Suisse</option>
+              <option value="Tanzanie">Tanzanie</option>
+              <option value="Tchad">Tchad</option>
+              <option value="Togo">Togo</option>
+              <option value="Tunisie">Tunisie</option>
+              <option value="Turquie">Turquie</option>
+              <option value="Ukraine">Ukraine</option>
+              <option value="Venezuela">Venezuela</option>
+              <option value="Vietnam">Vietnam</option>
+              <option value="Zimbabwe">Zimbabwe</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Genre</label>
+              <select value={form.gender} onChange={e => set('gender', e.target.value)} style={INPUT}>
+                <option value="male">Homme</option>
+                <option value="female">Femme</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Tranche d'age</label>
+              <select value={form.age_range} onChange={e => set('age_range', e.target.value)} style={INPUT}>
+                <option value="">--</option>
+                <option value="moins de 18">Moins de 18</option>
+                <option value="18-24">18-24</option>
+                <option value="25-34">25-34</option>
+                <option value="35-44">35-44</option>
+                <option value="45-54">45-54</option>
+                <option value="55+">55+</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Niveau ML</label>
+            <select value={form.ml_level} onChange={e => set('ml_level', e.target.value)} style={INPUT}>
+              <option value="">-- Selectionner --</option>
+              {[['beginner','Debutant'], ['intermediate','Intermediaire'], ['advanced','Avance']].map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
+
+          <button type="submit" disabled={loading} style={{
+            width: '100%', padding: 10, borderRadius: 8, border: 'none', marginTop: 4,
+            backgroundColor: loading ? '#9CA3AF' : '#00853F',
+            color: '#fff', fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
+          }}>
+            {loading ? 'Enregistrement...' : 'Sauvegarder'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// -- Navbar -------------------------------------------------------------------
 export default function Navbar() {
-  const { user, clearAuth, lastLoginAt } = useAuthStore()
-  const navigate                         = useNavigate()
-  const { isOpen, toggle }     = useSidebar()
-  const { isMobile, isTablet } = useResponsive()
-  const [dropdownOpen, setDropdownOpen]       = useState(false)
-  const [changePassOpen, setChangePassOpen]   = useState(false)
-  const dropdownRef = useRef(null)
+  const { user, clearAuth, setAuth, token } = useAuthStore()
+  const navigate = useNavigate()
+  const toast    = useToast()
+  const { toggle: toggleSidebar } = useSidebar()
+  const { isMobile } = useResponsive()
 
-  const isDesktop    = !isMobile && !isTablet
-  const sidebarWidth = isDesktop ? (isOpen ? 220 : 60) : 0
+  const [menuOpen,      setMenuOpen]      = useState(false)
+  const [showPwdModal,  setShowPwdModal]  = useState(false)
+  const [showProfModal, setShowProfModal] = useState(false)
+  const menuRef = useRef(null)
 
-  const handleLogout = () => { setDropdownOpen(false); clearAuth(); navigate('/login') }
-
+  // Fermer le menu au clic exterieur
   useEffect(() => {
-    const handler = e => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownOpen(false)
-    }
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false) }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const initials = getInitials(user)
-  const role     = getRole(user)
+  const handleLogout = () => {
+    clearAuth()
+    navigate('/login')
+    toast.info('Deconnecte avec succes.')
+  }
+
+  const NAVBAR_H = 56
 
   return (
     <>
       <nav style={{
-        position: 'fixed', top: 0, left: sidebarWidth, right: 0, height: 64,
-        backgroundColor: '#ffffff',
-        borderBottom: '1px solid #D6E8DC',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 20px', zIndex: 100,
-        fontFamily: 'Inter, Segoe UI, sans-serif',
-        transition: 'left 0.25s ease',
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        height: NAVBAR_H,
+        backgroundColor: '#fff',
+        borderBottom: '1px solid #E5E7EB',
+        display: 'flex', alignItems: 'center',
+        padding: '0 16px',
+        gap: 12,
       }}>
+        {/* Hamburger (mobile) */}
+        {isMobile && (
+          <button onClick={toggleSidebar} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: '#6B7280', padding: 6, borderRadius: 6, display: 'flex',
+          }}>
+            <Menu size={20}/>
+          </button>
+        )}
 
-        {/* Gauche : burger mobile + horloge desktop */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {!isDesktop && (
-            <button onClick={toggle} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 36, height: 36, borderRadius: 8,
-              border: '1px solid #D6E8DC', backgroundColor: 'transparent',
-              cursor: 'pointer', color: '#1B4D2E',
-            }}>
-              <Menu size={18} />
-            </button>
-          )}
-          {!isDesktop && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <img src="/Logo.png" alt="LEGACY" style={{ width: 26, height: 26, objectFit: 'contain' }} />
-              <span style={{ fontFamily: BRAND_FONT, fontSize: 14, fontWeight: 700, color: BRAND_GREEN, letterSpacing: '2px' }}>
-                {BRAND_NAME}
-              </span>
-            </div>
-          )}
-          {isDesktop && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 8, backgroundColor: '#E6F4ED',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <Clock size={14} color="#00853F" />
-              </div>
-              <LiveClock />
-            </div>
-          )}
-        </div>
+        {/* Horloge */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16 }}>
+          {!isMobile && <LiveClock />}
 
-        {/* Droite : user dropdown */}
-        <div ref={dropdownRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setDropdownOpen(o => !o)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '6px 10px 6px 6px', borderRadius: 10,
-              border: '1px solid #D6E8DC', backgroundColor: 'transparent',
-              cursor: 'pointer', transition: 'background-color 0.15s',
+          {/* Separateur */}
+          <div style={{ width: 1, height: 28, backgroundColor: '#E5E7EB' }}/>
+
+          {/* Avatar + menu */}
+          <div ref={menuRef} style={{ position: 'relative' }}>
+            <button onClick={() => setMenuOpen(v => !v)} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 8,
+              transition: 'background 0.15s',
             }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F4F7F5'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <div style={{
-              width: 34, height: 34, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #1B4D2E, #00853F)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '0.5px' }}>{initials}</span>
-            </div>
-            {!isMobile && (
-              <div style={{ textAlign: 'left', lineHeight: 1.3 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap' }}>
-                  {user?.full_name || user?.email || 'Utilisateur'}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F3F4F6'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              {/* Avatar */}
+              <div style={{
+                width: 34, height: 34, borderRadius: '50%',
+                backgroundColor: BRAND_GREEN, color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', flexShrink: 0,
+                textShadow: '0 1px 2px rgba(0,0,0,0.25)',
+              }}>
+                {getInitials(user)
+                  ? getInitials(user)
+                  : <UserCircle2 size={20} color="#fff" strokeWidth={1.8}/>}
+              </div>
+              {!isMobile && (
+                <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                    {user?.full_name || user?.email || 'Utilisateur'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#6B7280' }}>{getRole(user)}</div>
                 </div>
-                <div style={{ fontSize: 11, color: '#6B7280' }}>{role}</div>
+              )}
+              <ChevronDown size={14} color="#9CA3AF" style={{ transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}/>
+            </button>
+
+            {/* Dropdown */}
+            {menuOpen && (
+              <div style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 6px)',
+                backgroundColor: '#fff', border: '1px solid #E5E7EB',
+                borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                minWidth: 220, zIndex: 200, overflow: 'hidden',
+              }}>
+                {/* Header menu */}
+                <div style={{ padding: '12px 14px', borderBottom: '1px solid #F3F4F6' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                    {user?.full_name || user?.email}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#6B7280' }}>{user?.email}</div>
+                  {user?.last_login && (
+                    <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Clock size={10}/> Derniere connexion : {formatLastLogin(user.last_login)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div style={{ padding: '6px 0' }}>
+                  <button onClick={() => { setMenuOpen(false); setShowProfModal(true) }}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 14px', background: 'none', border: 'none',
+                      cursor: 'pointer', fontSize: 13, color: '#374151', textAlign: 'left',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <UserCircle2 size={15} color="#6B7280"/> Modifier le profil
+                  </button>
+
+                  <button onClick={() => { setMenuOpen(false); setShowPwdModal(true) }}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 14px', background: 'none', border: 'none',
+                      cursor: 'pointer', fontSize: 13, color: '#374151', textAlign: 'left',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <KeyRound size={15} color="#6B7280"/> Changer le mot de passe
+                  </button>
+
+                  <div style={{ borderTop: '1px solid #F3F4F6', margin: '4px 0' }}/>
+
+                  <button onClick={handleLogout}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 14px', background: 'none', border: 'none',
+                      cursor: 'pointer', fontSize: 13, color: '#DC2626', textAlign: 'left',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#FEF2F2'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <LogOut size={15} color="#DC2626"/> Se deconnecter
+                  </button>
+                </div>
               </div>
             )}
-            <ChevronDown size={14} color="#6B7280"
-              style={{ transition: 'transform 0.2s', transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-            />
-          </button>
-
-          {dropdownOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-              backgroundColor: '#fff', border: '1px solid #D6E8DC',
-              borderRadius: 10, overflow: 'hidden',
-              boxShadow: '0 8px 24px rgba(27,77,46,0.12)',
-              minWidth: 210, zIndex: 200,
-            }}>
-              {/* Info */}
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #F0F7F3', backgroundColor: '#F9FBFA' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#1B4D2E' }}>{user?.full_name || user?.email}</div>
-                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{role}</div>
-                {lastLoginAt && (
-                  <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Clock size={10} />
-                    Connexion : {formatLastLogin(lastLoginAt)}
-                  </div>
-                )}
-              </div>
-
-              {/* Changer mot de passe */}
-              <button
-                onClick={() => { setDropdownOpen(false); setChangePassOpen(true) }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  width: '100%', padding: '11px 16px',
-                  fontSize: 13, color: '#374151',
-                  backgroundColor: 'transparent', border: 'none',
-                  cursor: 'pointer', textAlign: 'left',
-                }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F4F7F5'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                <KeyRound size={15} color="#6B7280" />
-                Changer le mot de passe
-              </button>
-
-              {/* Déconnexion */}
-              <button
-                onClick={handleLogout}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  width: '100%', padding: '11px 16px',
-                  fontSize: 13, color: '#DC2626',
-                  backgroundColor: 'transparent', border: 'none',
-                  borderTop: '1px solid #F0F7F3',
-                  cursor: 'pointer', textAlign: 'left',
-                }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#FEF2F2'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                <LogOut size={15} color="#DC2626" />
-                Déconnexion
-              </button>
-            </div>
-          )}
+          </div>
         </div>
       </nav>
 
-      {/* Modal changement mot de passe */}
-      {changePassOpen && <ChangePasswordModal onClose={() => setChangePassOpen(false)} />}
+      {showPwdModal   && <ChangePasswordModal onClose={() => setShowPwdModal(false)}/>}
+      {showProfModal  && <EditProfileModal user={user} onClose={() => setShowProfModal(false)} onSaved={(u) => setAuth(u, token)} />}
     </>
   )
 }

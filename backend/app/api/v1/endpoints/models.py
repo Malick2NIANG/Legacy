@@ -1,10 +1,9 @@
 """
-Endpoints de gestion des configurations de modèles ML.
-CRUD des définitions de modèles (algorithme + hyperparamètres).
+Endpoints de gestion des configurations de modeles ML.
 """
 from typing import List, Optional
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.services.model_service import ModelService
@@ -12,74 +11,106 @@ from app.services.model_service import ModelService
 router = APIRouter()
 
 
-# ── Schémas inline (simples, pas besoin de fichier séparé) ─────────────────
 class ModelCreate(BaseModel):
     name: str
-    algorithm: str
+    description: Optional[str] = None
+    model_type: str = "sklearn"
+    algorithm: Optional[str] = "random_forest"
+    hf_model_id: Optional[str] = None
+    cv_task: Optional[str] = None
+    version: Optional[str] = "v1 - initial"
     hyperparameters: dict = {}
 
 
 class ModelUpdate(BaseModel):
     name: Optional[str] = None
+    description: Optional[str] = None
     hyperparameters: Optional[dict] = None
 
 
 class ModelRead(BaseModel):
     id: int
     name: str
-    algorithm: str
+    description: Optional[str] = None
+    model_type: str = "sklearn"
+    algorithm: Optional[str] = None
+    hf_model_id: Optional[str] = None
+    cv_task: Optional[str] = None
+    version: Optional[str] = None
     hyperparameters: dict
 
     class Config:
         from_attributes = True
 
 
-# ── Endpoints ───────────────────────────────────────────────────────────────
 @router.get("/", response_model=List[ModelRead])
-def list_models(
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    """Retourne tous les modèles configurés par l'utilisateur."""
+def list_models(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     return ModelService(db).get_all(owner_id=current_user.id)
 
 
 @router.post("/", response_model=ModelRead, status_code=status.HTTP_201_CREATED)
-def create_model(
-    payload: ModelCreate,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    """Crée une nouvelle configuration de modèle ML."""
+def create_model(payload: ModelCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     return ModelService(db).create(
         name=payload.name,
+        description=payload.description,
+        model_type=payload.model_type,
         algorithm=payload.algorithm,
+        hf_model_id=payload.hf_model_id,
+        cv_task=payload.cv_task,
+        version=payload.version,
         hyperparameters=payload.hyperparameters,
         owner_id=current_user.id,
     )
 
 
 @router.put("/{model_id}", response_model=ModelRead)
-def update_model(
-    model_id: int,
-    payload: ModelUpdate,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    """Met à jour le nom ou les hyperparamètres d'un modèle existant."""
+def update_model(model_id: int, payload: ModelUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     return ModelService(db).update(
         model_id=model_id,
         owner_id=current_user.id,
         name=payload.name,
+        description=payload.description,
         hyperparameters=payload.hyperparameters,
     )
 
 
 @router.delete("/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_model(
+def delete_model(model_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    ModelService(db).delete(model_id=model_id, owner_id=current_user.id)
+
+
+@router.get("/{model_id}/download-model")
+def download_model_pkl(
     model_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Supprime un modèle par ID."""
-    ModelService(db).delete(model_id=model_id, owner_id=current_user.id)
+    """Retourne une URL presignee MinIO pour le .pkl de la derniere experience completed de ce modele."""
+    from app.models.experiment import Experiment, ExperimentStatus
+    from app.models.result import Result
+    from app.services.storage_service import StorageService
+
+    # Derniere experience completed pour ce modele appartenant a l'utilisateur
+    exp = (
+        db.query(Experiment)
+        .filter(
+            Experiment.model_id == model_id,
+            Experiment.owner_id == current_user.id,
+            Experiment.status == ExperimentStatus.COMPLETED,
+        )
+        .order_by(Experiment.finished_at.desc())
+        .first()
+    )
+    if not exp:
+        raise HTTPException(status_code=404, detail="Aucune experience terminee pour ce modele")
+
+    result = db.query(Result).filter(Result.experiment_id == exp.id).first()
+    if not result or not result.model_key:
+        raise HTTPException(
+            status_code=404,
+            detail="Modele non disponible — relancez une experience pour generer le .pkl",
+        )
+
+    storage = StorageService()
+    download_url = storage.get_url(result.model_key, expires=3600)
+    return {"download_url": download_url, "model_key": result.model_key, "experiment_id": exp.id}

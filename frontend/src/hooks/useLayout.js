@@ -3,8 +3,8 @@ import useResponsive from './useResponsive'
 
 /**
  * Retourne le marginLeft à appliquer sur le contenu principal.
- * Desktop : 220px (ouvert) ou 60px (mini) — la sidebar est toujours présente.
- * Mobile/tablette : 0 — la sidebar est en overlay.
+ * Desktop : 220px (ouvert) ou 60px (mini), la sidebar est toujours présente.
+ * Mobile/tablette : 0, la sidebar est en overlay.
  */
 export default function useLayout() {
   const { isOpen }              = useSidebar()
@@ -16,10 +16,12 @@ export default function useLayout() {
   return {
     mainStyle: {
       marginLeft: sidebarWidth,
-      paddingTop: 64,
-      transition: 'margin-left 0.25s ease',
+      paddingTop: 56,
       minHeight: '100vh',
+      boxSizing: 'border-box',
+      transition: 'margin-left 0.2s ease',
+      display: 'flex',
+      flexDirection: 'column',
     },
-    sidebarWidth,
   }
 }

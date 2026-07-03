@@ -12,7 +12,7 @@ export default function PageFooter() {
       fontFamily: 'Inter, Segoe UI, sans-serif',
       letterSpacing: '0.2px',
     }}>
-      © 2026 <span style={{ fontWeight: 600, color: '#1B4D2E' }}>Legacy</span> — Tous droits réservés
+      © 2026 <span style={{ fontWeight: 600, color: '#1B4D2E', textShadow: '0 0 8px rgba(0,134,63,0.45), 0 0 16px rgba(0,134,63,0.2)' }}>Legacy</span>, Tous droits réservés
     </footer>
   )
 }

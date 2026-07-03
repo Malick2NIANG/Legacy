@@ -1,5 +1,5 @@
 """
-Schémas Pydantic pour la validation des données dataset.
+Schemas Pydantic pour la validation des donnees dataset.
 """
 from pydantic import BaseModel
 from datetime import datetime
@@ -7,12 +7,12 @@ from typing import Optional
 
 
 class DatasetCreate(BaseModel):
-    """Métadonnées soumises avec l'upload d'un dataset."""
+    """Metadonnees soumises avec l'upload d'un dataset."""
     name: str
 
 
 class DatasetRead(BaseModel):
-    """Représentation complète d'un dataset retournée au client."""
+    """Representation complete d'un dataset retournee au client."""
     id: int
     name: str
     filename: str
@@ -20,6 +20,7 @@ class DatasetRead(BaseModel):
     mimetype: Optional[str]
     owner_id: int
     created_at: datetime
+    version: Optional[int] = 1
 
     class Config:
         from_attributes = True

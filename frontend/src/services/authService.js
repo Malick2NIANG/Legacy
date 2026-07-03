@@ -1,11 +1,9 @@
 /**
- * Service d'authentification.
- * Encapsule les appels API pour login, register et profil.
+ * Service d authentification et profil.
  */
 import api from './api'
 
 const authService = {
-  /** Authentifie l'utilisateur via OAuth2PasswordRequestForm et retourne le token JWT */
   login: async (email, password) => {
     const form = new URLSearchParams()
     form.append('username', email)
@@ -16,20 +14,34 @@ const authService = {
     return data  // { access_token, token_type }
   },
 
-  /** Inscrit un nouvel utilisateur */
-  register: async (email, password, fullName) => {
-    const { data } = await api.post('/auth/register', {
-      email,
-      password,
-      full_name: fullName,
-    })
-    return data  // UserRead
+  register: async (payload) => {
+    const { data } = await api.post('/auth/register', payload)
+    return data
   },
 
-  /** Récupère le profil de l'utilisateur connecté */
   getCurrentUser: async () => {
     const { data } = await api.get('/auth/me')
-    return data  // UserRead
+    return data
+  },
+
+  updateProfile: async (payload) => {
+    const { data } = await api.patch('/auth/me', payload)
+    return data
+  },
+
+  changePassword: async (current_password, new_password) => {
+    const { data } = await api.post('/auth/change-password', { current_password, new_password })
+    return data
+  },
+
+  forgotPassword: async (email) => {
+    const { data } = await api.post('/auth/forgot-password', { email })
+    return data
+  },
+
+  resetPassword: async (token, new_password) => {
+    const { data } = await api.post('/auth/reset-password', { token, new_password })
+    return data
   },
 }
 

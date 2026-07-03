@@ -1,5 +1,5 @@
 """
-Schémas Pydantic pour la validation des expériences ML.
+Schemas Pydantic pour la validation des experiences ML.
 """
 from pydantic import BaseModel
 from datetime import datetime
@@ -8,22 +8,24 @@ from app.models.experiment import ExperimentStatus
 
 
 class ExperimentCreate(BaseModel):
-    """Données pour lancer une nouvelle expérience."""
+    """Donnees pour lancer une nouvelle experience."""
     name: str
     dataset_id: int
     model_id: int
 
 
 class ExperimentRead(BaseModel):
-    """Représentation complète d'une expérience."""
+    """Representation complete d'une experience."""
     id: int
     name: str
     dataset_id: int
     model_id: int
+    dataset_name: Optional[str] = None
+    model_name: Optional[str] = None
     status: ExperimentStatus
-    celery_task_id: Optional[str]
+    celery_task_id: Optional[str] = None
     created_at: datetime
-    finished_at: Optional[datetime]
+    finished_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

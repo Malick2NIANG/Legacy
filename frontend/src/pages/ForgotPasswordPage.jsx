@@ -65,7 +65,7 @@ export default function ForgotPasswordPage() {
               </div>
               <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: '0 0 10px' }}>E-mail envoyé !</h2>
               <p style={{ fontSize: 14, color: '#6B7280', lineHeight: 1.6, margin: 0 }}>
-                Si un compte existe pour <strong>{email}</strong>, vous recevrez un lien de réinitialisation dans quelques minutes.
+                Si un compte existe pour <strong>{email}</strong>, vous recevrez un mot de passe temporaire dans quelques minutes. Connectez-vous avec ce mot de passe, puis vous pourrez le personnaliser.
               </p>
               <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 16 }}>Pensez à vérifier vos spams.</p>
             </div>
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
             <>
               <h2 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: '#111827' }}>Mot de passe oublié ?</h2>
               <p style={{ margin: '0 0 28px', fontSize: 14, color: '#6B7280', lineHeight: 1.6 }}>
-                Entrez votre adresse e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.
+                Entrez votre adresse e-mail et nous vous enverrons un mot de passe temporaire pour vous connecter.
               </p>
 
               <form onSubmit={handleSubmit}>
@@ -112,7 +112,7 @@ export default function ForgotPasswordPage() {
                   color: '#fff', fontSize: 14, fontWeight: 600,
                   cursor: loading ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s',
                 }}>
-                  {loading ? 'Envoi en cours…' : 'Envoyer le lien'}
+                  {loading ? 'Envoi en cours...' : 'Recevoir un mot de passe temporaire'}
                 </button>
               </form>
 

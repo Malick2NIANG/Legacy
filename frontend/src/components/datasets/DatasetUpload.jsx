@@ -2,7 +2,7 @@
  * Zone d'upload de dataset avec drag-and-drop et icônes Lucide.
  */
 import React, { useState, useRef } from 'react'
-import { UploadCloud, FileText, CheckCircle, AlertCircle } from 'lucide-react'
+import { UploadCloud, FileText, CheckCircle, AlertCircle, FolderArchive } from 'lucide-react'
 
 function DatasetUpload({ onUploadSuccess }) {
   const [dragging, setDragging]   = useState(false)
@@ -58,15 +58,24 @@ function DatasetUpload({ onUploadSuccess }) {
         >
           <input
             ref={inputRef} type="file"
-            accept=".csv,.json,.xlsx,.parquet,.txt"
+            accept=".csv,.json,.xlsx,.parquet,.txt,.zip"
             style={{ display: 'none' }}
             onChange={e => e.target.files[0] && handleFile(e.target.files[0])}
           />
 
           {file ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              <CheckCircle size={20} color="#10B981" />
-              <span style={{ fontWeight: 600, color: '#10B981', fontSize: 14 }}>{file.name}</span>
+              {file.name.endsWith('.zip')
+                ? <FolderArchive size={20} color="#D97706" />
+                : <CheckCircle size={20} color="#10B981" />}
+              <span style={{ fontWeight: 600, color: file.name.endsWith('.zip') ? '#D97706' : '#10B981', fontSize: 14 }}>
+                {file.name}
+              </span>
+              {file.name.endsWith('.zip') && (
+                <span style={{ fontSize: 11, color: '#92400E', backgroundColor: '#FEF3C7', padding: '2px 8px', borderRadius: 10, border: '1px solid #FCD34D' }}>
+                  CV / Audio / Video
+                </span>
+              )}
             </div>
           ) : (
             <>
@@ -75,7 +84,8 @@ function DatasetUpload({ onUploadSuccess }) {
                 Glissez un fichier ou cliquez pour parcourir
               </p>
               <p style={{ margin: 0, color: '#9CA3AF', fontSize: 12 }}>
-                CSV, JSON, Excel, Parquet, TXT
+                CSV, JSON, Excel, Parquet, TXT &nbsp;·&nbsp;
+                <span style={{ color: '#D97706', fontWeight: 500 }}>ZIP</span> pour CV / Audio / Video
               </p>
             </>
           )}

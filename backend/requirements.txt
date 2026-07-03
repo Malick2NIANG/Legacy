@@ -30,6 +30,17 @@ scikit-learn==1.4.2
 numpy==1.26.4
 pandas==2.2.1
 
-# Deep Learning (optionnel)
-# tensorflow==2.16.0
-# torch==2.2.1
+# Traitement d'images (Computer Vision pipeline)
+Pillow==10.3.0
+
+# Audio pipeline
+librosa==0.10.1
+soundfile==0.12.1
+
+# Video pipeline
+opencv-python-headless==4.9.0.80
+
+# Deep Learning
+tensorflow==2.16.1
+torch==2.2.2
+--extra-index-url https://download.pytorch.org/whl/cpu

@@ -7,7 +7,7 @@ from typing import List
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Legacy — Plateforme Data Science"
+    PROJECT_NAME: str = "Legacy, Plateforme Data Science"
     SECRET_KEY: str = "change-me-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
 
@@ -21,13 +21,15 @@ class Settings(BaseSettings):
 
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
 
-    # Email (SMTP) — pour la réinitialisation de mot de passe
+    # Email (SMTP), pour la réinitialisation de mot de passe
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = "noreply@legacy-platform.io"
     FRONTEND_URL: str = "http://localhost:3000"
+
+    HF_API_KEY: str = ""
 
     class Config:
         env_file = ".env"

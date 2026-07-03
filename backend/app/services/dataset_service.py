@@ -39,7 +39,16 @@ class DatasetService:
         file_size: int = None,
         mimetype: str = None,
     ) -> Dataset:
-        """Enregistre les métadonnées d'un dataset après upload réussi vers MinIO."""
+        """Enregistre les métadonnées d'un dataset après upload réussi vers MinIO.
+        Auto-incrémente la version si un dataset du même nom existe déjà."""
+        from sqlalchemy import func as sqlfunc
+        existing_max = (
+            self.db.query(sqlfunc.max(Dataset.version))
+            .filter(Dataset.owner_id == owner_id, Dataset.name == name)
+            .scalar()
+        )
+        version = (existing_max or 0) + 1
+
         dataset = Dataset(
             name=name,
             filename=filename,
@@ -47,6 +56,7 @@ class DatasetService:
             owner_id=owner_id,
             file_size=file_size,
             mimetype=mimetype,
+            version=version,
         )
         self.db.add(dataset)
         self.db.commit()

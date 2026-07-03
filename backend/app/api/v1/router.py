@@ -1,6 +1,6 @@
 """
 Router principal de l'API v1.
-Agrège tous les routers des endpoints et les préfixe correctement.
+Agregre tous les routers des endpoints.
 """
 from fastapi import APIRouter
 from app.api.v1.endpoints import auth, datasets, models, experiments, results, admin, dashboard

@@ -2,6 +2,7 @@
  * Liste des datasets avec recherche et état vide.
  */
 import React, { useState } from 'react'
+import { Database } from 'lucide-react'
 import DatasetCard from './DatasetCard'
 
 function DatasetList({ datasets, loading, onDelete, onDownload }) {
@@ -45,7 +46,7 @@ function DatasetList({ datasets, loading, onDelete, onDownload }) {
           backgroundColor: '#F9FAFB', borderRadius: 12,
           border: '2px dashed #E5E7EB',
         }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🗄</div>
+          <Database size={36} color="#D1D5DB" style={{ marginBottom: 12 }} />
           <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>
             {search ? 'Aucun dataset ne correspond à cette recherche.' : 'Aucun dataset importé. Uploadez votre premier fichier !'}
           </p>

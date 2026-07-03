@@ -1,5 +1,5 @@
 /**
- * Logo Legacy — soleil levant.
+ * Logo Legacy, soleil levant.
  * Recréation SVG fidèle du Logo.png : corps jaune rempli + rayons orange + lignes horizon.
  * Prop `size` contrôle la taille, fond transparent (s'adapte au dark/light).
  */
@@ -11,15 +11,15 @@ export default function BaobabLogo({ size = 32 }) {
       viewBox="0 0 80 80"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      aria-label="Legacy — soleil levant"
+      aria-label="Legacy, soleil levant"
     >
-      {/* Corps du soleil — demi-cercle rempli */}
+      {/* Corps du soleil, demi-cercle rempli */}
       <path
         d="M 17 52 A 23 23 0 0 1 63 52 Z"
         fill="#FEDB5C"
       />
 
-      {/* Rayons — orange arrondi */}
+      {/* Rayons, orange arrondi */}
       {/* Vertical top */}
       <line x1="40" y1="26" x2="40" y2="17" stroke="#F5A227" strokeWidth="4.2" strokeLinecap="round"/>
       {/* ±22° */}

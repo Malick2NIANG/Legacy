@@ -1,16 +1,19 @@
 """
-Endpoints d'authentification — Login, Register, Me, Forgot/Reset password.
+Endpoints d'authentification, Login, Register, Me, Forgot/Reset password.
 """
 import uuid
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from typing import Optional, List
 from pydantic import BaseModel, EmailStr
 
 from app.api.deps import get_db, get_current_user
 from app.services.auth_service import AuthService
-from app.services.email_service import send_reset_email
+from app.services.email_service import send_reset_email, send_temp_password_email
 from app.schemas.user import UserCreate, UserRead, Token
 from app.models.user import User
 from app.models.password_reset import PasswordResetToken
@@ -24,7 +27,19 @@ router = APIRouter()
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    token = AuthService(db).login(email=form_data.username, password=form_data.password)
+    service = AuthService(db)
+    user = service.authenticate(email=form_data.username, password=form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email ou mot de passe incorrect",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    # Mettre a jour la date de derniere connexion
+    from datetime import datetime, timezone
+    user.last_login = datetime.now(timezone.utc)
+    db.commit()
+    token = service.create_token(user)
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -63,31 +78,39 @@ class ForgotPasswordRequest(BaseModel):
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """
-    Génère un token de réinitialisation et envoie un e-mail.
-    Retourne toujours 200 pour ne pas révéler si l'e-mail existe.
+    Genere un mot de passe temporaire aleatoire, le set comme mot de passe
+    de l utilisateur, et l envoie par email.
+    Retourne toujours 200 pour ne pas reveler si l email existe.
     """
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
-        # Réponse identique pour ne pas fuiter les e-mails enregistrés
-        return {"message": "Si ce compte existe, un e-mail a été envoyé."}
+        return {"message": "Si ce compte existe, un e-mail a ete envoye."}
 
-    # Invalider les anciens tokens non utilisés
-    db.query(PasswordResetToken).filter(
-        PasswordResetToken.user_id == user.id,
-        PasswordResetToken.used == False,
-    ).delete()
+    # Generer un mot de passe temporaire : 4 lettres + 4 chiffres + 2 spec
+    alphabet = string.ascii_letters + string.digits
+    temp_pw  = (
+        secrets.choice(string.ascii_uppercase) +
+        secrets.choice(string.ascii_lowercase) +
+        secrets.choice(string.digits) +
+        secrets.choice("!@#$%") +
+        "".join(secrets.choice(alphabet) for _ in range(6))
+    )
+    # Melanger les caracteres
+    temp_list = list(temp_pw)
+    secrets.SystemRandom().shuffle(temp_list)
+    temp_pw = "".join(temp_list)
 
-    # Créer un nouveau token valide 1 heure
-    token = str(uuid.uuid4())
-    expires = datetime.now(timezone.utc) + timedelta(hours=1)
-    reset_token = PasswordResetToken(user_id=user.id, token=token, expires_at=expires)
-    db.add(reset_token)
+    user.hashed_password    = hash_password(temp_pw)
+    user.must_change_password = True
     db.commit()
 
-    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
-    send_reset_email(to_email=user.email, reset_link=reset_link)
+    send_temp_password_email(
+        to_email=user.email,
+        temp_password=temp_pw,
+        user_name=user.first_name or user.full_name or "",
+    )
 
-    return {"message": "Si ce compte existe, un e-mail a été envoyé."}
+    return {"message": "Si ce compte existe, un e-mail a ete envoye."}
 
 
 # ── Reset password ────────────────────────────────────────────────────────────
@@ -109,23 +132,23 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
     ).first()
 
     if not reset_token:
-        raise HTTPException(status_code=400, detail="Lien invalide ou déjà utilisé.")
+        raise HTTPException(status_code=400, detail="Token invalide ou expiré.")
 
-    if datetime.now(timezone.utc) > reset_token.expires_at:
-        raise HTTPException(status_code=400, detail="Ce lien a expiré. Veuillez en demander un nouveau.")
+    if reset_token.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Token invalide ou expiré.")
 
-    # Mettre à jour le mot de passe
     user = db.query(User).filter(User.id == reset_token.user_id).first()
-    user.hashed_password = hash_password(payload.new_password)
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
 
-    # Invalider le token
+    user.hashed_password = hash_password(payload.new_password)
     reset_token.used = True
     db.commit()
 
-    return {"message": "Mot de passe mis à jour avec succès."}
+    return {"message": "Mot de passe réinitialisé avec succès."}
 
 
-# ── Change password (utilisateur connecté) ────────────────────────────────────
+# ── Change password (utilisateur connecté) ─────────────────────────────────────
 
 class ChangePasswordRequest(BaseModel):
     old_password: str
@@ -146,6 +169,40 @@ def change_password(
         raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect.")
 
     current_user.hashed_password = hash_password(payload.new_password)
+    current_user.must_change_password = False
     db.commit()
 
     return {"message": "Mot de passe mis à jour avec succès."}
+
+
+# ── Update profile ────────────────────────────────────────────────────────────
+
+class ProfileUpdate(BaseModel):
+    first_name:       Optional[str] = None
+    last_name:        Optional[str] = None
+    country:          Optional[str] = None
+    gender:           Optional[str] = None
+    age_range:        Optional[str] = None
+    usage_reasons:    Optional[list] = None
+    ml_level:         Optional[str] = None
+    discovery_source: Optional[str] = None
+
+
+@router.patch("/me", response_model=UserRead)
+def update_profile(
+    payload: ProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Met a jour le profil de l utilisateur connecte."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    fields = payload.model_dump(exclude_none=True)
+    for key, value in fields.items():
+        setattr(user, key, value)
+    # Recalculer full_name si first/last changent
+    fn = fields.get("first_name", user.first_name) or ""
+    ln = fields.get("last_name",  user.last_name)  or ""
+    if fn or ln:
+        user.full_name = f"{fn} {ln}".strip()
+    db.commit()
+   
