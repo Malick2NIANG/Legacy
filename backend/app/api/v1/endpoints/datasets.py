@@ -35,7 +35,7 @@ async def upload_dataset(
     file_data = await file.read()
     # Nom lisible dans MinIO : datasets/<user_id>/<nom_dataset>/<fichier>
     safe_name = re.sub(r'[^\w\-]', '_', name)
-    object_name = f"{current_user.id}/{safe_name}/{file.filename}"
+    object_name = f"{safe_name}/{file.filename}"
 
     StorageService().upload(
         file_data=file_data,
