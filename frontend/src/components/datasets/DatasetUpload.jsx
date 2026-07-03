@@ -3,6 +3,7 @@
  */
 import React, { useState, useRef } from 'react'
 import { UploadCloud, FileText, CheckCircle, AlertCircle, FolderArchive } from 'lucide-react'
+import { useToast } from '../../context/ToastContext'
 
 function DatasetUpload({ onUploadSuccess }) {
   const [dragging, setDragging]   = useState(false)
@@ -11,6 +12,7 @@ function DatasetUpload({ onUploadSuccess }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError]         = useState('')
   const inputRef = useRef()
+  const toast    = useToast()
 
   const handleFile = (f) => {
     setFile(f)
@@ -30,11 +32,18 @@ function DatasetUpload({ onUploadSuccess }) {
     setUploading(true)
     setError('')
     try {
-      await onUploadSuccess(file, name.trim())
+      const created = await onUploadSuccess(file, name.trim())
+      if (created?.version > 1) {
+        toast.info(`"${created.name}" — nouvelle version v${created.version} créée`)
+      } else {
+        toast.success(`"${created?.name || name.trim()}" importé avec succès`)
+      }
       setFile(null)
       setName('')
     } catch (err) {
-      setError(err?.response?.data?.detail || "Erreur lors de l'upload")
+      const msg = err?.response?.data?.detail || "Erreur lors de l'upload"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setUploading(false)
     }

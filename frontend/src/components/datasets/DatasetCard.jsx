@@ -1,9 +1,50 @@
 /**
  * Carte dataset avec apercu colonnes.
  */
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Database, Trash2, Download, HardDrive, Calendar, Eye, X, Table2, Archive, ImageIcon, Music, Video } from 'lucide-react'
 import datasetService from '../../services/datasetService'
+import { useToast } from '../../context/ToastContext'
+
+/* ── Modal confirmation suppression ───────────────────────────────────────── */
+function ConfirmDeleteModal({ dataset, onConfirm, onCancel }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 950,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div style={{
+        backgroundColor: '#fff', borderRadius: 14, width: 'min(420px, 92vw)',
+        padding: '28px 28px 24px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Trash2 size={18} color="#EF4444" />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#111827' }}>Supprimer ce dataset ?</p>
+            <p style={{ margin: 0, fontSize: 12, color: '#6B7280', marginTop: 2 }}>Cette action est irréversible.</p>
+          </div>
+        </div>
+        <div style={{ backgroundColor: '#F9FAFB', borderRadius: 8, padding: '10px 14px', marginBottom: 20, border: '1px solid #E5E7EB' }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#374151' }}>{dataset.name}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9CA3AF' }}>{dataset.filename}</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #E5E7EB',
+            backgroundColor: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer',
+          }}>Annuler</button>
+          <button onClick={onConfirm} style={{
+            flex: 1, padding: '10px 0', borderRadius: 8, border: 'none',
+            backgroundColor: '#EF4444', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer',
+          }}>Supprimer</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const ZIP_TYPES = {
   computer_vision: { icon: ImageIcon,  label: 'Images',  color: '#2563EB', bg: '#EFF6FF', desc: 'Dossiers par classe · JPG / PNG' },
@@ -171,8 +212,26 @@ function PreviewModal({ dataset, onClose }) {
 
 function DatasetCard({ dataset, onDelete, onDownload }) {
   const [showPreview, setShowPreview] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [deleting,    setDeleting]    = useState(false)
+  const toast = useToast()
+
+  const handleDelete = useCallback(async () => {
+    setDeleting(true)
+    try {
+      await onDelete(dataset.id)
+      toast.success(`"${dataset.name}" supprimé`)
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    } finally {
+      setShowConfirm(false)
+      setDeleting(false)
+    }
+  }, [dataset, onDelete, toast])
+
   return (
     <>
+      {showConfirm && <ConfirmDeleteModal dataset={dataset} onConfirm={handleDelete} onCancel={() => setShowConfirm(false)} />}
       <div style={{
         backgroundColor: '#ffffff', border: '1px solid #E5E7EB',
         borderRadius: 12, padding: '20px',
@@ -233,7 +292,7 @@ function DatasetCard({ dataset, onDelete, onDownload }) {
             </button>
           )}
           {onDelete && (
-            <button onClick={() => onDelete(dataset.id)} style={{
+            <button onClick={() => setShowConfirm(true)} disabled={deleting} style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               padding: '7px 0', borderRadius: 6,
               border: '1px solid #FECACA', backgroundColor: 'transparent',
