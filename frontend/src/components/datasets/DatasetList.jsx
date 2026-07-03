@@ -6,7 +6,7 @@ import { Database, ChevronLeft, ChevronRight } from 'lucide-react'
 import DatasetCard from './DatasetCard'
 
 const GREEN    = '#00853F'
-const PAGE_OPTIONS = [8, 16, 32]
+const PAGE_OPTIONS = [4, 8, 16, 32]
 
 function DatasetList({ datasets, loading, onDelete, onDownload }) {
   const [search,      setSearch]      = useState('')
@@ -65,33 +65,24 @@ function DatasetList({ datasets, loading, onDelete, onDownload }) {
             }}
           />
 
-          {/* ── Filtre alphabétique ── */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 16, alignItems: 'center' }}>
-            <button
-              onClick={() => { setLetterFilter(''); setPage(1) }}
+          {/* ── Filtre alphabétique (select) ── */}
+          <div style={{ marginBottom: 16 }}>
+            <select
+              value={letterFilter}
+              onChange={e => { setLetterFilter(e.target.value); setPage(1) }}
               style={{
-                padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: `1px solid ${!letterFilter ? GREEN : '#E5E7EB'}`,
-                backgroundColor: !letterFilter ? GREEN : '#fff',
-                color: !letterFilter ? '#fff' : '#6B7280',
+                padding: '8px 14px', borderRadius: 8, border: `1px solid ${letterFilter ? GREEN : '#E5E7EB'}`,
+                fontSize: 13, color: letterFilter ? GREEN : '#6B7280', fontWeight: letterFilter ? 600 : 400,
+                cursor: 'pointer', outline: 'none', backgroundColor: '#fff',
+                boxShadow: letterFilter ? `0 0 0 2px ${GREEN}20` : 'none',
+                minWidth: 180,
               }}
             >
-              Tous
-            </button>
-            {availableLetters.map(l => (
-              <button
-                key={l}
-                onClick={() => handleLetter(l)}
-                style={{
-                  width: 30, height: 30, borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  border: `1px solid ${letterFilter === l ? GREEN : '#E5E7EB'}`,
-                  backgroundColor: letterFilter === l ? GREEN : '#fff',
-                  color: letterFilter === l ? '#fff' : '#374151',
-                }}
-              >
-                {l}
-              </button>
-            ))}
+              <option value="">Toutes les lettres</option>
+              {availableLetters.map(l => (
+                <option key={l} value={l}>Commence par "{l}"</option>
+              ))}
+            </select>
           </div>
 
           {/* ── Infos résultats + choix par page ── */}

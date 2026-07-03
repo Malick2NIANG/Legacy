@@ -2,8 +2,23 @@
  * Carte dataset avec apercu colonnes.
  */
 import React, { useState } from 'react'
-import { Database, Trash2, Download, HardDrive, Calendar, Eye, X, Table2 } from 'lucide-react'
+import { Database, Trash2, Download, HardDrive, Calendar, Eye, X, Table2, Archive, ImageIcon, Music, Video } from 'lucide-react'
 import datasetService from '../../services/datasetService'
+
+const ZIP_TYPES = {
+  computer_vision: { icon: ImageIcon,  label: 'Images',  color: '#2563EB', bg: '#EFF6FF', desc: 'Dossiers par classe · JPG / PNG' },
+  audio:           { icon: Music,       label: 'Audio',   color: '#7C3AED', bg: '#F5F3FF', desc: 'Dossiers par classe · WAV / MP3' },
+  video:           { icon: Video,       label: 'Vidéo',   color: '#0891B2', bg: '#ECFEFF', desc: 'Dossiers par classe · MP4' },
+  default:         { icon: Archive,     label: 'Archive', color: '#6B7280', bg: '#F9FAFB', desc: 'ZIP — contenu non prévisualisable' },
+}
+
+function detectZipType(filename) {
+  const n = filename?.toLowerCase() || ''
+  if (n.includes('vision') || n.includes('image') || n.includes('img')) return 'computer_vision'
+  if (n.includes('audio') || n.includes('son') || n.includes('wav'))    return 'audio'
+  if (n.includes('video') || n.includes('clip') || n.includes('mp4'))   return 'video'
+  return 'default'
+}
 
 function formatSize(bytes) {
   if (!bytes) return ''
@@ -22,12 +37,15 @@ function PreviewModal({ dataset, onClose }) {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
 
+  const isZip = dataset.filename?.toLowerCase().endsWith('.zip')
+
   React.useEffect(() => {
+    if (isZip) { setLoading(false); return }
     datasetService.preview(dataset.id, 5)
       .then(setPreview)
       .catch(() => setError('Impossible de charger l\'apercu.'))
       .finally(() => setLoading(false))
-  }, [dataset.id])
+  }, [dataset.id, isZip])
 
   return (
     <div style={{
@@ -59,6 +77,24 @@ function PreviewModal({ dataset, onClose }) {
         <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
           {loading && <p style={{ color: '#9CA3AF', fontSize: 14 }}>Chargement de l'apercu...</p>}
           {error   && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}
+
+          {/* Aperçu ZIP : message informatif au lieu d'une erreur */}
+          {isZip && !loading && (() => {
+            const t = ZIP_TYPES[detectZipType(dataset.filename)] || ZIP_TYPES.default
+            const Icon = t.icon
+            return (
+              <div style={{ textAlign: 'center', padding: '32px 24px' }}>
+                <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: t.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <Icon size={28} color={t.color} />
+                </div>
+                <p style={{ margin: '0 0 8px', fontWeight: 700, fontSize: 15, color: '#111827' }}>Archive {t.label}</p>
+                <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6B7280' }}>{t.desc}</p>
+                <div style={{ display: 'inline-flex', gap: 10, padding: '12px 20px', backgroundColor: t.bg, borderRadius: 10, border: `1px solid ${t.color}20` }}>
+                  <span style={{ fontSize: 12, color: t.color, fontWeight: 600 }}>💡 Téléchargez le fichier pour inspecter son contenu</span>
+                </div>
+              </div>
+            )
+          })()}
           {preview && (
             <>
               {/* Stats */}
