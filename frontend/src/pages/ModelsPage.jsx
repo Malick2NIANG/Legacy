@@ -1,5 +1,6 @@
 import useLayout from '../hooks/useLayout'
 import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Brain, Trash2, Save, X, AlertCircle, Pencil, Search, Package } from 'lucide-react'
 import Navbar     from '../components/common/Navbar'
 import Sidebar    from '../components/common/Sidebar'
@@ -261,10 +262,17 @@ export default function ModelsPage() {
   const [form,    setForm]    = useState(EMPTY_FORM)
   const [saving,  setSaving]  = useState(false)
   const [error,   setError]   = useState('')
-  const [filter,  setFilter]  = useState('all')  // 'all' | type value
+  const [searchParams] = useSearchParams()
+  const [filter,  setFilter]  = useState(() => searchParams.get('type') || 'all')
   const [search,  setSearch]  = useState('')
 
   useEffect(() => { fetchModels() }, [])
+
+  // Sync filtre si on arrive via ?type=xxx
+  useEffect(() => {
+    const t = searchParams.get('type')
+    if (t) setFilter(t)
+  }, [searchParams])
 
   const fetchModels = async () => {
     try { setModels(await modelService.getAll()) }

@@ -205,4 +205,5 @@ def update_profile(
     if fn or ln:
         user.full_name = f"{fn} {ln}".strip()
     db.commit()
-   
+    db.refresh(user)
+    return user
