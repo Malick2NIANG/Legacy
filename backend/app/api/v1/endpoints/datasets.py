@@ -5,6 +5,7 @@ CRUD complet + upload vers MinIO + récupération de métadonnées.
 import uuid
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.services.dataset_service import DatasetService
@@ -60,6 +61,27 @@ def get_dataset_url(
     dataset = DatasetService(db).get_by_id(dataset_id, current_user.id)
     url = StorageService().get_url(dataset.minio_key)
     return {"url": url}
+
+
+@router.get("/{dataset_id}/download")
+def download_dataset_file(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Stream le fichier dataset directement depuis MinIO — pas de presigned URL."""
+    dataset = DatasetService(db).get_by_id(dataset_id, current_user.id)
+    storage = StorageService()
+    try:
+        stream = storage.get_object_stream(dataset.minio_key)
+        filename = dataset.filename or "dataset"
+        return StreamingResponse(
+            stream,
+            media_type=dataset.mimetype or "application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de téléchargement : {e}")
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)

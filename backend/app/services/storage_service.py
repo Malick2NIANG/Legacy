@@ -11,18 +11,8 @@ from app.core.config import settings
 
 class StorageService:
     def __init__(self):
-        # Client interne Docker (minio:9000) — pour upload/delete/bucket
         self.client = Minio(
             settings.MINIO_ENDPOINT,
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            secure=False,
-        )
-        # Client public (localhost:9000) — pour les presigned URLs
-        # La signature est calculée avec localhost dès le départ,
-        # donc le navigateur peut valider la requête sans erreur SignatureDoesNotMatch.
-        self.public_client = Minio(
-            "localhost:9000",
             access_key=settings.MINIO_ACCESS_KEY,
             secret_key=settings.MINIO_SECRET_KEY,
             secure=False,
@@ -50,13 +40,16 @@ class StorageService:
         return object_name
 
     def get_url(self, object_name: str, expires: int = 3600) -> str:
-        """Génère une URL présignée via le client public (localhost:9000).
-        La signature est calculée directement pour localhost — pas de replace nécessaire."""
-        return self.public_client.presigned_get_object(
+        """Génère une URL présignée (usage interne uniquement)."""
+        return self.client.presigned_get_object(
             bucket_name=self.bucket,
             object_name=object_name,
             expires=timedelta(seconds=expires),
         )
+
+    def get_object_stream(self, object_name: str):
+        """Retourne un stream du fichier depuis MinIO (pour proxy téléchargement)."""
+        return self.client.get_object(self.bucket, object_name)
 
     def delete(self, object_name: str):
         """Supprime un objet du bucket."""

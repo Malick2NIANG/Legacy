@@ -4,6 +4,7 @@
  */
 import useLayout from '../hooks/useLayout'
 import React from 'react'
+import { useToast } from '../context/ToastContext'
 import Navbar from '../components/common/Navbar'
 import Sidebar from '../components/common/Sidebar'
 import DatasetList from '../components/datasets/DatasetList'
@@ -15,13 +16,13 @@ import PageFooter from '../components/common/Footer'
 function DatasetsPage() {
   const { mainStyle } = useLayout()
   const { datasets, loading, error, uploadDataset, deleteDataset } = useDatasets()
+  const toast = useToast()
 
   const handleDownload = async (id) => {
     try {
-      const url = await datasetService.getUrl(id)
-      window.open(url, '_blank')
+      await datasetService.download(id)
     } catch {
-      alert('Impossible de générer le lien de téléchargement.')
+      toast.error('Erreur lors du téléchargement du dataset')
     }
   }
 
