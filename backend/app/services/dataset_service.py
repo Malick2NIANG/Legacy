@@ -30,6 +30,16 @@ class DatasetService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès refusé")
         return dataset
 
+    def get_next_version(self, name: str, owner_id: int) -> int:
+        """Retourne le prochain numéro de version pour un dataset donné."""
+        from sqlalchemy import func as sqlfunc
+        existing_max = (
+            self.db.query(sqlfunc.max(Dataset.version))
+            .filter(Dataset.owner_id == owner_id, Dataset.name == name)
+            .scalar()
+        )
+        return (existing_max or 0) + 1
+
     def create(
         self,
         name: str,
@@ -38,16 +48,18 @@ class DatasetService:
         owner_id: int,
         file_size: int = None,
         mimetype: str = None,
+        version: int = None,
     ) -> Dataset:
         """Enregistre les métadonnées d'un dataset après upload réussi vers MinIO.
         Auto-incrémente la version si un dataset du même nom existe déjà."""
-        from sqlalchemy import func as sqlfunc
-        existing_max = (
-            self.db.query(sqlfunc.max(Dataset.version))
-            .filter(Dataset.owner_id == owner_id, Dataset.name == name)
-            .scalar()
-        )
-        version = (existing_max or 0) + 1
+        if version is None:
+            from sqlalchemy import func as sqlfunc
+            existing_max = (
+                self.db.query(sqlfunc.max(Dataset.version))
+                .filter(Dataset.owner_id == owner_id, Dataset.name == name)
+                .scalar()
+            )
+            version = (existing_max or 0) + 1
 
         dataset = Dataset(
             name=name,

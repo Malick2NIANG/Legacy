@@ -33,9 +33,12 @@ async def upload_dataset(
 ):
     """Upload un fichier dataset vers MinIO et enregistre ses métadonnées en DB."""
     file_data = await file.read()
-    # Nom lisible dans MinIO : datasets/<user_id>/<nom_dataset>/<fichier>
-    safe_name = re.sub(r'[^\w\-]', '_', name)
-    object_name = f"{safe_name}/{file.filename}"
+    svc     = DatasetService(db)
+    version = svc.get_next_version(name, current_user.id)
+
+    # Chemin lisible avec version : <nom>/v<N>/<fichier>
+    safe_name   = re.sub(r'[^\w\-]', '_', name)
+    object_name = f"{safe_name}/v{version}/{file.filename}"
 
     StorageService().upload(
         file_data=file_data,
@@ -43,13 +46,14 @@ async def upload_dataset(
         content_type=file.content_type or "application/octet-stream",
     )
 
-    return DatasetService(db).create(
+    return svc.create(
         name=name,
         filename=file.filename,
         minio_key=object_name,
         owner_id=current_user.id,
         file_size=len(file_data),
         mimetype=file.content_type,
+        version=version,
     )
 
 
