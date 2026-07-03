@@ -2,7 +2,7 @@
 Endpoints de gestion des datasets.
 CRUD complet + upload vers MinIO + récupération de métadonnées.
 """
-import uuid
+import re
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from fastapi.responses import StreamingResponse
@@ -33,7 +33,9 @@ async def upload_dataset(
 ):
     """Upload un fichier dataset vers MinIO et enregistre ses métadonnées en DB."""
     file_data = await file.read()
-    object_name = f"datasets/{current_user.id}/{uuid.uuid4()}_{file.filename}"
+    # Nom lisible dans MinIO : datasets/<user_id>/<nom_dataset>/<fichier>
+    safe_name = re.sub(r'[^\w\-]', '_', name)
+    object_name = f"{current_user.id}/{safe_name}/{file.filename}"
 
     StorageService().upload(
         file_data=file_data,
