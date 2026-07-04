@@ -110,6 +110,16 @@ function ExperimentRow({ exp, step, onDelete, onRetry, onEdit }) {
               <BarChart2 size={12} /> Voir resultats
             </Link>
           )}
+          {isFailed && (
+            <button onClick={() => onRetry(exp)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 12, color: '#EF4444', fontWeight: 600,
+              background: '#FEF2F2', border: '1px solid #FECACA',
+              borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+            }}>
+              <Play size={11} /> Réessayer
+            </button>
+          )}
           {!isRunning && (
             <button onClick={() => onEdit(exp)} title="Modifier et relancer" style={{
               background: 'none', border: 'none', cursor: 'pointer',
@@ -120,16 +130,6 @@ function ExperimentRow({ exp, step, onDelete, onRetry, onEdit }) {
             onMouseLeave={e => e.currentTarget.style.color = '#9CA3AF'}
             >
               <Pencil size={14} />
-            </button>
-          )}
-          {isFailed && (
-            <button onClick={() => onRetry(exp)} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              fontSize: 12, color: '#EF4444', fontWeight: 600,
-              background: '#FEF2F2', border: '1px solid #FECACA',
-              borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
-            }}>
-              <Play size={11} /> Réessayer
             </button>
           )}
           <button
