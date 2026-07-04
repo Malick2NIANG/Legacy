@@ -6,7 +6,7 @@ import useLayout from '../hooks/useLayout'
 import React, { useState, useEffect, useRef } from 'react'
 import {
   FlaskConical, Play, Plus, X, AlertCircle,
-  CheckCircle, Clock, XCircle, Loader, BarChart2, Trash2
+  CheckCircle, Clock, XCircle, Loader, BarChart2, Trash2, Pencil
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Navbar     from '../components/common/Navbar'
@@ -68,26 +68,28 @@ function ProgressBar({ pct }) {
   )
 }
 
-function ExperimentRow({ exp, step, onDelete }) {
+function ExperimentRow({ exp, step, onDelete, onRetry, onEdit }) {
   const created = exp.created_at ? new Date(exp.created_at).toLocaleDateString('fr-FR') : ''
   const isRunning = exp.status === 'running'
+  const isFailed  = exp.status === 'failed'
+  const borderColor = isRunning ? '#FDE68A' : isFailed ? '#FECACA' : '#D6E8DC'
   const pct = isRunning ? (step ? (STEP_PCT[step] ?? 30) : 10) : (exp.status === 'completed' ? 100 : 0)
 
   return (
     <div style={{
-      backgroundColor: '#fff', border: `1px solid ${isRunning ? '#FDE68A' : '#D6E8DC'}`,
+      backgroundColor: '#fff', border: `1px solid ${borderColor}`,
       borderRadius: 10, padding: '16px 20px',
-      boxShadow: isRunning ? '0 0 0 2px #FEF3C720' : 'none',
+      boxShadow: isRunning ? '0 0 0 2px #FEF3C720' : isFailed ? '0 0 0 2px #FEF2F220' : 'none',
       transition: 'border-color 0.3s',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 8,
-            backgroundColor: isRunning ? '#FEF3C7' : '#F4F7F5',
+            backgroundColor: isRunning ? '#FEF3C7' : isFailed ? '#FEF2F2' : '#F4F7F5',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <FlaskConical size={16} color={isRunning ? '#F59E0B' : '#9CA3AF'} />
+            <FlaskConical size={16} color={isRunning ? '#F59E0B' : isFailed ? '#EF4444' : '#9CA3AF'} />
           </div>
           <div>
             <p style={{ margin: '0 0 2px', fontWeight: 600, fontSize: 14, color: '#111827' }}>
@@ -107,6 +109,28 @@ function ExperimentRow({ exp, step, onDelete }) {
             }}>
               <BarChart2 size={12} /> Voir resultats
             </Link>
+          )}
+          {!isRunning && (
+            <button onClick={() => onEdit(exp)} title="Modifier et relancer" style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#9CA3AF', padding: 4, borderRadius: 6,
+              display: 'flex', alignItems: 'center', transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#4361EE'}
+            onMouseLeave={e => e.currentTarget.style.color = '#9CA3AF'}
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+          {isFailed && (
+            <button onClick={() => onRetry(exp)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 12, color: '#EF4444', fontWeight: 600,
+              background: '#FEF2F2', border: '1px solid #FECACA',
+              borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+            }}>
+              <Play size={11} /> Réessayer
+            </button>
           )}
           <button
             onClick={() => onDelete(exp.id)}
@@ -239,7 +263,32 @@ export default function ExperimentsPage() {
     try {
       await experimentService.delete(id)
       setExperiments(prev => prev.filter(e => e.id !== id))
-    } catch { alert('Erreur lors de la suppression.') }
+    } catch { toast.error('Erreur lors de la suppression.') }
+  }
+
+  const handleEdit = (exp) => {
+    setForm({
+      name:       `${exp.name}_v2`,
+      dataset_id: String(exp.dataset_id),
+      model_id:   String(exp.model_id),
+    })
+    setOpen(true)
+  }
+
+  const handleRetry = async (exp) => {
+    try {
+      const created = await experimentService.launch({
+        name:       `${exp.name}_retry`,
+        dataset_id: exp.dataset_id,
+        model_id:   exp.model_id,
+      })
+      const updated = [created, ...experiments]
+      setExperiments(updated)
+      startPolling(updated)
+      toast.info(`Relance de "${exp.name}"…`)
+    } catch {
+      toast.error('Erreur lors du relancement')
+    }
   }
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
@@ -282,7 +331,7 @@ export default function ExperimentsPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {experiments.map(exp => (
-                <ExperimentRow key={exp.id} exp={exp} step={steps[exp.id]} onDelete={handleDelete} />
+                <ExperimentRow key={exp.id} exp={exp} step={steps[exp.id]} onDelete={handleDelete} onRetry={handleRetry} onEdit={handleEdit} />
               ))}
             </div>
           )}
