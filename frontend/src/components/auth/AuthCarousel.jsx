@@ -4,7 +4,7 @@ const SLIDES = [
   {
     bg: '#0D2818', accent: '#2D9E60',
     phrase: 'Entraînez vos modèles ML directement depuis votre navigateur.',
-    sub: 'Sklearn · HuggingFace · Computer Vision',
+    sub: 'Sklearn · TensorFlow · Computer Vision · Audio · Vidéo',
     visual: (
       <svg viewBox="0 0 320 200" width="320" height="200">
         {[40,80,120,55,95,130,70,110].map((h, i) => (

@@ -414,7 +414,7 @@ export default function ModelsPage() {
             <div>
               <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#111827' }}>Modeles</h1>
               <p style={{ margin: 0, color: '#6B7280', fontSize: 14 }}>
-                Sklearn · TensorFlow · PyTorch · Computer Vision · Audio · Video · HuggingFace · RAG
+                Sklearn · TensorFlow · PyTorch · Computer Vision · Audio · Video · RAG
               </p>
             </div>
             <button onClick={openCreate} style={{

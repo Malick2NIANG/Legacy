@@ -147,7 +147,6 @@ function UserDashboard({ user }) {
             { label:'Computer Vision', type:'computer_vision', color:'#2563EB', bg:'#EFF6FF', sub:'.pkl' },
             { label:'Audio',           type:'audio',           color:'#7C3AED', bg:'#F5F3FF', sub:'.pkl' },
             { label:'Vidéo',           type:'video',           color:'#0891B2', bg:'#ECFEFF', sub:'.pkl' },
-            { label:'HuggingFace',     type:'huggingface',     color:'#D97706', bg:'#FFFBEB', sub:'API'  },
             { label:'RAG',             type:'rag',             color:'#8B5CF6', bg:'#F5F3FF', sub:'RAG'  },
           ].map(({ label, type, color, bg, sub }) => (
             <Link key={label} to={`/models?type=${type}`} style={{ textDecoration:'none' }}>

@@ -51,8 +51,8 @@ const FEATURES = [
   },
   {
     icon: <Globe size={20} color={GOLD} />,
-    title: 'HuggingFace',
-    desc: 'Couplage avec l\'Inference API HuggingFace pour classification de texte. Clé API configurable par modèle. RAG (vectorielle DB) en feuille de route.',
+    title: 'RAG & NLP',
+    desc: 'Pipeline Retrieval-Augmented Generation en feuille de route. Traitement de texte natif via scikit-learn (TF-IDF, vectorisation). Exportable en .pkl.',
   },
   {
     icon: <Shield size={20} color='#F87171' />,
@@ -82,7 +82,6 @@ const ML_PIPELINES = [
   { label:'Computer Vision', sub:'ZIP → .pkl',    color:'#2563EB', bg:'#EFF6FF' },
   { label:'Audio',         sub:'ZIP → .pkl',       color:'#7C3AED', bg:'#F5F3FF' },
   { label:'Vidéo',         sub:'ZIP → .pkl',       color:'#0891B2', bg:'#ECFEFF' },
-  { label:'HuggingFace',   sub:'CSV → métriques',  color:'#D97706', bg:'#FFFBEB' },
 ]
 
 const PILLARS = [
@@ -104,8 +103,7 @@ const PILLARS = [
 ]
 
 const TECH = [
-  'FastAPI', 'React', 'PostgreSQL', 'Redis',
-  'MinIO', 'Celery', 'Docker', 'HuggingFace', 'scikit-learn', 'TensorFlow', 'PyTorch',
+  'FastAPI', 'React', 'PostgreSQL', 'Redis', 'MinIO', 'Celery', 'Docker', 'scikit-learn', 'TensorFlow', 'PyTorch',
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
