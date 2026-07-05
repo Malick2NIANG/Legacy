@@ -13,7 +13,6 @@ const PAGE_OPTIONS = [4, 8, 16, 32]
 
 const MODEL_TYPES = [
   { value: 'sklearn',         label: 'Scikit-learn',    desc: 'RandomForest, SVM, GradientBoosting...', color: '#00853F' },
-  { value: 'huggingface',     label: 'HuggingFace',     desc: 'BERT, GPT-2, DistilBERT - via cle API',  color: '#F59E0B' },
   { value: 'computer_vision', label: 'Computer Vision', desc: 'Classification images (ZIP par classe)',   color: '#10B981' },
   { value: 'audio',           label: 'Audio',            desc: 'Classification audio WAV/MP3 via MFCC',   color: '#3B82F6' },
   { value: 'video',           label: 'Video',            desc: 'Classification video MP4 via frames',      color: '#EC4899' },
@@ -71,10 +70,6 @@ const HP_SCHEMA = {
     { key: 'n_estimators', label: 'Nb estimateurs RF',     type: 'int', default: 100, min: 1,   max: 500 },
     { key: 'frame_step',   label: 'Pas frames (1 frame/N)',type: 'int', default: 30,  min: 1,   max: 100 },
     { key: 'img_size',     label: 'Taille frame (px)',      type: 'int', default: 32,  min: 16,  max: 128 },
-  ],
-  huggingface: [
-    { key: 'hf_api_key',   label: 'Clé API HuggingFace', type: 'text',  default: '', placeholder: 'hf_xxxxxxxxxxxxxxxx', wide: true },
-    { key: 'max_samples',  label: 'Échantillons max',     type: 'int',   default: 50, min: 1, max: 1000 },
   ],
   tensorflow: [
     { key: 'epochs',        label: 'Epochs',               type: 'int',   default: 20,    min: 1,      max: 200 },
@@ -152,7 +147,7 @@ function HyperparamsFields({ modelType, algorithm, values, onChange }) {
 
 const EMPTY_FORM = {
   name: '', description: '', model_type: 'sklearn',
-  algorithm: 'random_forest', hf_model_id: '', cv_task: 'classification',
+  algorithm: 'random_forest', cv_task: 'classification',
   version: 'v1 - initial', hyperparameters: {},
 }
 
@@ -344,7 +339,6 @@ export default function ModelsPage() {
       description:     model.description || '',
       model_type:      model.model_type || 'sklearn',
       algorithm:       model.algorithm || 'random_forest',
-      hf_model_id:     model.hf_model_id || '',
       cv_task:         model.cv_task || 'classification',
       version:         model.version || 'v1 - initial',
       hyperparameters: model.hyperparameters || {},
@@ -363,7 +357,6 @@ export default function ModelsPage() {
         description:     form.description,
         model_type:      form.model_type,
         algorithm:       form.model_type === 'sklearn'         ? form.algorithm   : undefined,
-        hf_model_id:     form.model_type === 'huggingface'     ? form.hf_model_id : undefined,
         cv_task:         form.model_type === 'computer_vision' ? form.cv_task     : undefined,
         version:         form.version,
         hyperparameters: form.hyperparameters,
@@ -558,12 +551,6 @@ export default function ModelsPage() {
                   <select value={form.algorithm} onChange={e => set('algorithm', e.target.value)} style={INPUT}>
                     {SKLEARN_ALGOS.map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
-                </FormField>
-              )}
-              {form.model_type === 'huggingface' && (
-                <FormField label="Identifiant HuggingFace (ex: bert-base-uncased)">
-                  <input value={form.hf_model_id} onChange={e => set('hf_model_id', e.target.value)}
-                    placeholder="bert-base-uncased" style={INPUT} />
                 </FormField>
               )}
               {form.model_type === 'computer_vision' && (

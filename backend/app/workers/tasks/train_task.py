@@ -1,9 +1,6 @@
 """
 Tache Celery d entrainement ML.
-Supporte 3 pipelines selon model_type :
-  - sklearn        : CSV -> RandomForest / SVM / etc.
-  - computer_vision: ZIP d images (classe/image.jpg) -> features pixels -> sklearn
-  - huggingface    : CSV texte -> HuggingFace Inference API -> metriques
+Pipelines supportes : sklearn, computer_vision, audio, video, tensorflow, pytorch.
 """
 import io
 import os
@@ -187,87 +184,6 @@ def _train_cv(task, dataset_bytes, ml_model, storage, exp_id):
     model_key = _export_pkl(clf, storage, exp_id, "cv_rf")
 
     return metrics, training_history, model_key
-
-
-def _train_hf(task, dataset_bytes, ml_model, _storage, _exp_id):
-    from urllib import request as urlreq
-    from sklearn.metrics import (
-        accuracy_score, precision_score, recall_score, f1_score, confusion_matrix,
-    )
-    from sklearn.preprocessing import LabelEncoder
-
-    hf_model_id = (ml_model.hf_model_id or "").strip()
-    if not hf_model_id:
-        raise ValueError("hf_model_id non defini. Renseignez l identifiant HuggingFace.")
-
-    hp = ml_model.hyperparameters or {}
-    api_key = str(hp.get("hf_api_key") or os.getenv("HF_API_KEY", ""))
-    max_samples = int(hp.get("max_samples", 50))
-
-    task.update_state(state=states.STARTED, meta={"step": "Chargement du dataset texte"})
-
-    df = pd.read_csv(io.BytesIO(dataset_bytes))
-    text_cols = df.select_dtypes(include=["object"]).columns.tolist()
-    text_col  = text_cols[0] if text_cols else df.columns[0]
-    label_col = df.columns[-1]
-    df_eval = df.sample(min(max_samples, len(df)), random_state=42).reset_index(drop=True)
-
-    task.update_state(state=states.STARTED, meta={"step": "Evaluation via HuggingFace API"})
-
-    hf_url = f"https://api-inference.huggingface.co/models/{hf_model_id}"
-    hf_headers = {
-        "Content-Type": "application/json",
-        **(({"Authorization": f"Bearer {api_key}"}) if api_key else {}),
-    }
-
-    y_true, y_pred = [], []
-    api_errors = 0
-
-    for _, row in df_eval.iterrows():
-        text       = str(row[text_col])
-        true_label = str(row[label_col]).lower().strip()
-        try:
-            payload = json.dumps({"inputs": text}).encode()
-            req = urlreq.Request(hf_url, data=payload, headers=hf_headers)
-            with urlreq.urlopen(req, timeout=15) as resp:
-                result = json.loads(resp.read())
-            if isinstance(result, list) and len(result) > 0:
-                top = result[0] if isinstance(result[0], dict) else result[0][0]
-                pred = top.get("label", "").lower().strip()
-                pred = pred.replace("label_", "").replace("label ", "")
-                y_true.append(true_label)
-                y_pred.append(pred)
-        except Exception:
-            api_errors += 1
-            continue
-
-    if len(y_true) < 2:
-        raise ValueError(
-            f"HuggingFace API : {len(y_true)} predictions reussies ({api_errors} erreurs). "
-            "Verifiez hf_model_id et hf_api_key."
-        )
-
-    le = LabelEncoder()
-    all_labels = sorted(set(y_true) | set(y_pred))
-    le.fit(all_labels)
-    y_true_enc = le.transform(y_true)
-    y_pred_enc = le.transform(y_pred)
-
-    avg = "weighted"
-    metrics = {
-        "acc":  float(accuracy_score(y_true_enc, y_pred_enc)),
-        "prec": float(precision_score(y_true_enc, y_pred_enc, average=avg, zero_division=0)),
-        "rec":  float(recall_score(y_true_enc, y_pred_enc, average=avg, zero_division=0)),
-        "f1":   float(f1_score(y_true_enc, y_pred_enc, average=avg, zero_division=0)),
-        "cm":   confusion_matrix(y_true_enc, y_pred_enc).tolist(),
-    }
-    training_history = {
-        "hf_model_id":       hf_model_id,
-        "samples_evaluated": len(y_true),
-        "api_errors":        api_errors,
-        "labels_detected":   all_labels,
-    }
-    return metrics, training_history, None
 
 
 
@@ -722,10 +638,6 @@ def train_model(self, experiment_id: int):
 
         if model_type == "computer_vision":
             metrics, training_history, model_key = _train_cv(
-                self, dataset_bytes, ml_model, storage, exp.id
-            )
-        elif model_type == "huggingface":
-            metrics, training_history, model_key = _train_hf(
                 self, dataset_bytes, ml_model, storage, exp.id
             )
         elif model_type == "audio":
