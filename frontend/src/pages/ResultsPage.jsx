@@ -19,6 +19,7 @@ import Sidebar     from '../components/common/Sidebar'
 import PageFooter  from '../components/common/Footer'
 import experimentService from '../services/experimentService'
 import api from '../services/api'
+import { useToast } from '../context/ToastContext'
 
 const GREEN = '#00853F', GREEN2 = '#1B4D2E'
 const METRIC_COLORS = ['#00853F', '#10B981', '#F59E0B', '#8B5CF6', '#2563EB', '#DB2777']
@@ -251,6 +252,7 @@ function ComparisonTab({ experiments }) {
 export default function ResultsPage() {
   const { mainStyle }  = useLayout()
   const { experimentId } = useParams()
+  const toast = useToast()
   const [tab, setTab]            = useState('details')
   const [experiments, setExps]   = useState([])
   const [selected, setSelected]  = useState(experimentId || '')
@@ -279,10 +281,23 @@ export default function ResultsPage() {
     if (!selected) return
     setDlModel(true)
     try {
-      const { data } = await api.get(`/results/${selected}/download-model`)
-      window.open(data.download_url, '_blank')
+      let token = ''
+      try { token = JSON.parse(localStorage.getItem('ds-platform-auth')).state.token } catch (_) {}
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+      const res = await fetch(`${base}/results/${selected}/download-model`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Indisponible')
+      const blob = await res.blob()
+      const cd   = res.headers.get('Content-Disposition') || ''
+      const filename = cd.match(/filename="?([^"]+)"?/)?.[1] || 'model'
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url; a.download = filename
+      document.body.appendChild(a); a.click()
+      document.body.removeChild(a); URL.revokeObjectURL(url)
     } catch {
-      alert('Modèle non disponible — relancez l\'expérience pour générer le .pkl')
+      toast.error('Modèle non disponible — relancez l\'expérience pour générer le fichier.')
     } finally {
       setDlModel(false)
     }
@@ -332,16 +347,19 @@ export default function ResultsPage() {
             {result && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {/* Bouton téléchargement du modèle .pkl */}
-                {result.model_key && (
-                  <button onClick={handleDownloadModel} disabled={dlModel}
-                    title="Télécharger le modèle entraîné (.pkl)"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8,
-                      border: '1.5px solid #00853F', backgroundColor: '#E6F4ED', fontSize: 12,
-                      cursor: dlModel ? 'not-allowed' : 'pointer', color: '#00853F', fontWeight: 600,
-                      opacity: dlModel ? 0.6 : 1 }}>
-                    <Package size={13} /> {dlModel ? 'Chargement…' : 'Modèle .pkl'}
-                  </button>
-                )}
+                {result.model_key && (() => {
+                  const ext = result.model_key.split('.').pop() || 'pkl'
+                  return (
+                    <button onClick={handleDownloadModel} disabled={dlModel}
+                      title={`Télécharger le modèle entraîné (.${ext})`}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8,
+                        border: '1.5px solid #00853F', backgroundColor: '#E6F4ED', fontSize: 12,
+                        cursor: dlModel ? 'not-allowed' : 'pointer', color: '#00853F', fontWeight: 600,
+                        opacity: dlModel ? 0.6 : 1 }}>
+                      <Package size={13} /> {dlModel ? 'Chargement…' : `Modèle .${ext}`}
+                    </button>
+                  )
+                })()}
                 <div style={{ width: 1, height: 24, backgroundColor: '#D6E8DC' }} />
                 {[
                   { fmt: 'csv',         label: 'CSV Resume',     title: 'Metriques + infos experience + matrice de confusion', ext: 'csv'  },
