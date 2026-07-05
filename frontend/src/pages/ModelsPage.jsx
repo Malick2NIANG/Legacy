@@ -222,10 +222,23 @@ function ModelCard({ model, onDelete, onEdit }) {
   const handleDownload = async () => {
     setDownloading(true)
     try {
-      const { data } = await api.get(`/models/${model.id}/download-model`)
-      window.open(data.download_url, '_blank')
+      let token = ''
+      try { token = JSON.parse(localStorage.getItem('ds-platform-auth')).state.token } catch (_) {}
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+      const res = await fetch(`${base}/models/${model.id}/download-model`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Indisponible')
+      const blob = await res.blob()
+      const cd   = res.headers.get('Content-Disposition') || ''
+      const filename = cd.match(/filename="?([^"]+)"?/)?.[1] || 'model'
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url; a.download = filename
+      document.body.appendChild(a); a.click()
+      document.body.removeChild(a); URL.revokeObjectURL(url)
     } catch {
-      alert('Aucun modèle .pkl disponible — lancez une expérience avec ce modèle d\'abord.')
+      alert('Aucun fichier modèle disponible — lancez une expérience avec ce modèle d\'abord.')
     } finally {
       setDownloading(false)
     }

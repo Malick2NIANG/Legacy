@@ -85,12 +85,12 @@ def download_model_pkl(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Retourne une URL presignee MinIO pour le .pkl de la derniere experience completed de ce modele."""
+    """Stream le fichier modele (.pkl/.h5/.pt) depuis MinIO — pas de presigned URL."""
+    from fastapi.responses import StreamingResponse
     from app.models.experiment import Experiment, ExperimentStatus
     from app.models.result import Result
     from app.services.storage_service import StorageService
 
-    # Derniere experience completed pour ce modele appartenant a l'utilisateur
     exp = (
         db.query(Experiment)
         .filter(
@@ -108,9 +108,17 @@ def download_model_pkl(
     if not result or not result.model_key:
         raise HTTPException(
             status_code=404,
-            detail="Modele non disponible — relancez une experience pour generer le .pkl",
+            detail="Modele non disponible — relancez une experience pour generer le fichier",
         )
 
     storage = StorageService()
-    download_url = storage.get_url(result.model_key, expires=3600)
-    return {"download_url": download_url, "model_key": result.model_key, "experiment_id": exp.id}
+    try:
+        stream   = storage.get_object_stream(result.model_key)
+        filename = result.model_key.split("/")[-1]
+        return StreamingResponse(
+            stream,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de téléchargement : {e}")
