@@ -29,6 +29,7 @@ services:
       - ./backend/.env
     environment:
       - POSTGRES_HOST=postgres
+      - TZ=Africa/Dakar
     depends_on:
       - postgres
       - redis
@@ -48,6 +49,7 @@ services:
       - ./backend/.env
     environment:
       - POSTGRES_HOST=postgres
+      - TZ=Africa/Dakar
     depends_on:
       - redis
       - postgres
@@ -102,7 +104,7 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
-      TZ: Europe/Paris
+      TZ: Africa/Dakar
     volumes:
       - minio_data:/data
     networks:

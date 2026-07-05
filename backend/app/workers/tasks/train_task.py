@@ -61,8 +61,8 @@ def _export_pkl(clf, storage, exp_id, tag):
         with open(tmp_path, "rb") as f:
             pkl_bytes = f.read()
         os.unlink(tmp_path)
-        key = f"models/experiment_{exp_id}_{tag}.pkl"
-        storage.upload(pkl_bytes, key, "application/octet-stream")
+        key = f"experiment_{exp_id}_{tag}.pkl"
+        storage.upload_model(pkl_bytes, key, "application/octet-stream")
         return key
     except Exception:
         return None
@@ -475,8 +475,8 @@ def _train_tf(task, dataset_bytes, ml_model, storage, exp_id):
         with open(tmp_path, "rb") as f:
             h5_bytes = f.read()
         os.unlink(tmp_path)
-        model_key = f"models/experiment_{exp_id}_tf.h5"
-        storage.upload(h5_bytes, model_key, "application/octet-stream")
+        model_key = f"experiment_{exp_id}_tf.h5"
+        storage.upload_model(h5_bytes, model_key, "application/octet-stream")
     except Exception:
         pass
 
@@ -600,8 +600,8 @@ def _train_pytorch(task, dataset_bytes, ml_model, storage, exp_id):
         with open(tmp_path, "rb") as f:
             pt_bytes = f.read()
         os.unlink(tmp_path)
-        model_key = f"models/experiment_{exp_id}_pytorch.pt"
-        storage.upload(pt_bytes, model_key, "application/octet-stream")
+        model_key = f"experiment_{exp_id}_pytorch.pt"
+        storage.upload_model(pt_bytes, model_key, "application/octet-stream")
     except Exception:
         pass
 

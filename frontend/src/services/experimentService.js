@@ -31,6 +31,11 @@ const experimentService = {
     return response.data
   },
 
+  retry: async (id) => {
+    const { data } = await api.post(`/experiments/${id}/retry`)
+    return data
+  },
+
   delete: async (id) => {
     await api.delete(`/experiments/${id}`)
   },

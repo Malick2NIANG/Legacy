@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   FlaskConical, Play, Plus, X, AlertCircle,
   CheckCircle, Clock, XCircle, Loader, BarChart2, Trash2, Pencil,
-  ChevronLeft, ChevronRight, Search
+  ChevronLeft, ChevronRight, Search, Download
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Navbar     from '../components/common/Navbar'
@@ -114,6 +114,7 @@ function ProgressBar({ pct }) {
 /* ── Carte expérience ─────────────────────────────────────────────────────── */
 function ExperimentCard({ exp, step, onDelete, onRetry, onEdit }) {
   const [showConfirm, setShowConfirm] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const toast = useToast()
 
   const created  = exp.created_at ? new Date(exp.created_at).toLocaleDateString('fr-FR') : ''
@@ -124,6 +125,32 @@ function ExperimentCard({ exp, step, onDelete, onRetry, onEdit }) {
   const iconBg    = isRunning ? '#FEF3C7' : isFailed ? '#FEF2F2' : '#F4F7F5'
   const iconColor = isRunning ? '#F59E0B' : isFailed ? '#EF4444' : '#9CA3AF'
   const borderColor = isRunning ? '#FDE68A' : isFailed ? '#FECACA' : '#E5E7EB'
+
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      const stored = localStorage.getItem('ds-platform-auth')
+      const token  = stored ? JSON.parse(stored).state?.token : null
+      const base   = import.meta.env.VITE_API_URL || '/api/v1'
+      const res    = await fetch(`${base}/results/${exp.id}/download-model`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.detail || 'Fichier modèle non disponible')
+        return
+      }
+      const blob     = await res.blob()
+      const url      = URL.createObjectURL(blob)
+      const filename = res.headers.get('Content-Disposition')
+        ?.match(/filename="?([^"]+)"?/)?.[1] || `model_exp${exp.id}`
+      const a = document.createElement('a')
+      a.href = url; a.download = filename; a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Erreur lors du téléchargement')
+    } finally { setDownloading(false) }
+  }
 
   const handleConfirmDelete = async () => {
     try {
@@ -183,6 +210,16 @@ function ExperimentCard({ exp, step, onDelete, onRetry, onEdit }) {
             }}>
               <BarChart2 size={12} /> Résultats
             </Link>
+          )}
+          {exp.status === 'completed' && (
+            <button onClick={handleDownload} disabled={downloading} title="Télécharger le fichier modèle" style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '7px 0', borderRadius: 6,
+              border: '1px solid #BFDBFE', backgroundColor: downloading ? '#F1F5F9' : '#EFF6FF',
+              fontSize: 12, color: '#3B82F6', cursor: downloading ? 'not-allowed' : 'pointer', fontWeight: 600,
+            }}>
+              <Download size={12} /> {downloading ? '…' : 'Modèle'}
+            </button>
           )}
           {isFailed && (
             <button onClick={() => onRetry(exp)} style={{

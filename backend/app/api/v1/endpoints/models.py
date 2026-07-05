@@ -113,7 +113,7 @@ def download_model_pkl(
 
     storage = StorageService()
     try:
-        stream   = storage.get_object_stream(result.model_key)
+        stream   = storage.get_model_stream(result.model_key)
         filename = result.model_key.split("/")[-1]
         return StreamingResponse(
             stream,

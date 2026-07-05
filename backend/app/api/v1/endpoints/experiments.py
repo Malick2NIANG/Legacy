@@ -121,6 +121,36 @@ def get_experiment_status(
     }
 
 
+@router.post("/{experiment_id}/retry", response_model=ExperimentRead)
+def retry_experiment(
+    experiment_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Relance une expérience échouée in-place (réinitialise le statut, nouvelle tâche Celery)."""
+    from app.workers.tasks.train_task import train_model
+
+    exp = db.query(Experiment).filter(Experiment.id == experiment_id).first()
+    if not exp:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Experience introuvable")
+    if exp.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acces refuse")
+    if exp.status not in (ExperimentStatus.FAILED, ExperimentStatus.COMPLETED):
+        raise HTTPException(status_code=400, detail="Seules les experiences echouees peuvent etre relancees")
+
+    # Reset in-place
+    exp.status = ExperimentStatus.RUNNING
+    exp.finished_at = None
+    db.commit()
+
+    task = train_model.delay(exp.id)
+    exp.celery_task_id = task.id
+    db.commit()
+    db.refresh(exp)
+
+    return _enrich(exp, db)
+
+
 @router.delete("/{experiment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_experiment(
     experiment_id: int,

@@ -5,6 +5,8 @@ Fournit les metriques, la matrice de confusion et les exports CSV/JSON.
 import csv
 import io
 import json
+from datetime import timezone
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -16,6 +18,17 @@ from app.models.experiment import Experiment
 from app.models.dataset import Dataset
 from app.models.model import Model
 from app.services.storage_service import StorageService
+
+DAKAR = ZoneInfo("Africa/Dakar")
+
+
+def _fmt_dakar(dt) -> str:
+    """Formate un datetime en heure de Dakar (UTC+0, Africa/Dakar)."""
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(DAKAR).strftime("%Y-%m-%d %H:%M:%S")
 
 router = APIRouter()
 
@@ -64,7 +77,7 @@ def download_model(
         )
     storage = StorageService()
     try:
-        stream   = storage.get_object_stream(result.model_key)
+        stream   = storage.get_model_stream(result.model_key)
         filename = result.model_key.split("/")[-1]
         return StreamingResponse(
             stream,
@@ -125,8 +138,8 @@ def export_results(
             "model":           model.name if model else "",
             "model_type":      model.model_type if model else "",
             "status":          exp.status if exp else "",
-            "created_at":      exp.created_at.isoformat() if exp and exp.created_at else "",
-            "finished_at":     exp.finished_at.isoformat() if exp and exp.finished_at else "",
+            "created_at":      _fmt_dakar(exp.created_at) if exp else "",
+            "finished_at":     _fmt_dakar(exp.finished_at) if exp else "",
             "duration_s":      duration_s if duration_s is not None else "",
             "accuracy":        round(result.accuracy * 100, 4) if result.accuracy is not None else "",
             "precision":       round(result.precision * 100, 4) if result.precision is not None else "",
@@ -175,8 +188,8 @@ def export_results(
             "model":       model.name if model else None,
             "model_type":  model.model_type if model else None,
             "status":      str(exp.status) if exp else None,
-            "created_at":  exp.created_at.isoformat() if exp and exp.created_at else None,
-            "finished_at": exp.finished_at.isoformat() if exp and exp.finished_at else None,
+            "created_at":  _fmt_dakar(exp.created_at) if exp and exp.created_at else None,
+            "finished_at": _fmt_dakar(exp.finished_at) if exp and exp.finished_at else None,
             "duration_s":  duration_s,
         },
         "metrics": {

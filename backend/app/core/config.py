@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_BUCKET: str = "datasets"
+    MINIO_MODELS_BUCKET: str = "models"
 
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
 
