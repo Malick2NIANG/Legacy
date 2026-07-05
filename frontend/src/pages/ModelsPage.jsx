@@ -7,6 +7,7 @@ import Sidebar    from '../components/common/Sidebar'
 import PageFooter from '../components/common/Footer'
 import modelService from '../services/modelService'
 import api from '../services/api'
+import { useToast } from '../context/ToastContext'
 
 const GREEN = '#00853F'
 const PAGE_OPTIONS = [4, 8, 16, 32]
@@ -229,6 +230,7 @@ function ModelCard({ model, onDelete, onEdit }) {
   const [downloading,  setDownloading]  = React.useState(false)
   const [showConfirm,  setShowConfirm]  = React.useState(false)
   const exportFmt = FORMAT_LABEL[model.model_type] || '.pkl'
+  const toast = useToast()
 
   const handleDownload = async () => {
     setDownloading(true)
@@ -249,7 +251,7 @@ function ModelCard({ model, onDelete, onEdit }) {
       document.body.appendChild(a); a.click()
       document.body.removeChild(a); URL.revokeObjectURL(url)
     } catch {
-      alert('Aucun fichier modèle disponible — lancez une expérience avec ce modèle d\'abord.')
+      toast.error('Aucun fichier modèle disponible — lancez une expérience avec ce modèle d\'abord.')
     } finally {
       setDownloading(false)
     }
