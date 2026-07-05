@@ -215,9 +215,20 @@ function ConfirmDeleteModal({ model, onConfirm, onCancel }) {
   )
 }
 
+const FORMAT_LABEL = {
+  sklearn:         '.pkl',
+  computer_vision: '.pkl',
+  audio:           '.pkl',
+  video:           '.pkl',
+  tensorflow:      '.h5',
+  pytorch:         '.pt',
+  rag:             '.pkl',
+}
+
 function ModelCard({ model, onDelete, onEdit }) {
   const [downloading,  setDownloading]  = React.useState(false)
   const [showConfirm,  setShowConfirm]  = React.useState(false)
+  const exportFmt = FORMAT_LABEL[model.model_type] || '.pkl'
 
   const handleDownload = async () => {
     setDownloading(true)
@@ -266,13 +277,19 @@ function ModelCard({ model, onDelete, onEdit }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <button onClick={handleDownload} disabled={downloading} title="Télécharger le modèle .pkl"
-            style={{ background: 'none', border: 'none', cursor: downloading ? 'not-allowed' : 'pointer',
-              color: GREEN, padding: 4, borderRadius: 6, transition: 'background 0.15s',
-              opacity: downloading ? 0.5 : 1 }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#E6F4ED'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-            <Package size={14} />
+          <button onClick={handleDownload} disabled={downloading}
+            title={`Télécharger le modèle (${exportFmt})`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '3px 8px', borderRadius: 6, border: `1px solid ${GREEN}40`,
+              backgroundColor: '#F0FDF4', cursor: downloading ? 'not-allowed' : 'pointer',
+              color: GREEN, fontSize: 11, fontWeight: 700,
+              opacity: downloading ? 0.5 : 1, transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#D1FAE5'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#F0FDF4'}>
+            <Package size={11} />
+            {downloading ? '…' : exportFmt}
           </button>
           <button onClick={() => onEdit(model)} title="Modifier"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 4,
