@@ -1,7 +1,7 @@
 import useLayout from '../hooks/useLayout'
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Brain, Trash2, Save, X, AlertCircle, Pencil, Search, Package } from 'lucide-react'
+import { Plus, Brain, Trash2, Save, X, AlertCircle, Pencil, Search, Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import Navbar     from '../components/common/Navbar'
 import Sidebar    from '../components/common/Sidebar'
 import PageFooter from '../components/common/Footer'
@@ -9,6 +9,7 @@ import modelService from '../services/modelService'
 import api from '../services/api'
 
 const GREEN = '#00853F'
+const PAGE_OPTIONS = [4, 8, 16, 32]
 
 const MODEL_TYPES = [
   { value: 'sklearn',         label: 'Scikit-learn',    desc: 'RandomForest, SVM, GradientBoosting...', color: '#00853F' },
@@ -180,8 +181,48 @@ function FormField({ label, children }) {
   )
 }
 
+function ConfirmDeleteModal({ model, onConfirm, onCancel }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 950,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div style={{
+        backgroundColor: '#fff', borderRadius: 14, width: 'min(420px, 92vw)',
+        padding: '28px 28px 24px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Trash2 size={18} color="#EF4444" />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#111827' }}>Supprimer ce modèle ?</p>
+            <p style={{ margin: 0, fontSize: 12, color: '#6B7280', marginTop: 2 }}>Cette action est irréversible.</p>
+          </div>
+        </div>
+        <div style={{ backgroundColor: '#F9FAFB', borderRadius: 8, padding: '10px 14px', marginBottom: 20, border: '1px solid #E5E7EB' }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#374151' }}>{model.name}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9CA3AF' }}>{model.description || model.model_type}</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #E5E7EB',
+            backgroundColor: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer',
+          }}>Annuler</button>
+          <button onClick={onConfirm} style={{
+            flex: 1, padding: '10px 0', borderRadius: 8, border: 'none',
+            backgroundColor: '#EF4444', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer',
+          }}>Supprimer</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ModelCard({ model, onDelete, onEdit }) {
-  const [downloading, setDownloading] = React.useState(false)
+  const [downloading,  setDownloading]  = React.useState(false)
+  const [showConfirm,  setShowConfirm]  = React.useState(false)
 
   const handleDownload = async () => {
     setDownloading(true)
@@ -195,7 +236,14 @@ function ModelCard({ model, onDelete, onEdit }) {
     }
   }
 
+  const handleConfirmDelete = async () => {
+    await onDelete(model.id)
+    setShowConfirm(false)
+  }
+
   return (
+    <>
+      {showConfirm && <ConfirmDeleteModal model={model} onConfirm={handleConfirmDelete} onCancel={() => setShowConfirm(false)} />}
     <div style={{ backgroundColor: '#fff', border: '1px solid #D6E8DC',
       borderRadius: 12, padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
@@ -225,7 +273,7 @@ function ModelCard({ model, onDelete, onEdit }) {
             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
             <Pencil size={14} />
           </button>
-          <button onClick={() => onDelete(model.id)} title="Supprimer"
+          <button onClick={() => setShowConfirm(true)} title="Supprimer"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: 4,
               borderRadius: 6, transition: 'background 0.15s' }}
             onMouseEnter={e => e.currentTarget.style.backgroundColor = '#FEF2F2'}
@@ -250,6 +298,7 @@ function ModelCard({ model, onDelete, onEdit }) {
         )}
       </div>
     </div>
+    </>
   )
 }
 
@@ -265,6 +314,8 @@ export default function ModelsPage() {
   const [searchParams] = useSearchParams()
   const [filter,  setFilter]  = useState(() => searchParams.get('type') || 'all')
   const [search,  setSearch]  = useState('')
+  const [page,    setPage]    = useState(1)
+  const [perPage, setPerPage] = useState(8)
 
   useEffect(() => { fetchModels() }, [])
 
@@ -331,7 +382,6 @@ export default function ModelsPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer ce modele ?')) return
     await modelService.delete(id)
     setModels(prev => prev.filter(m => m.id !== id))
   }
@@ -349,6 +399,10 @@ export default function ModelsPage() {
                         (m.description || '').toLowerCase().includes(search.toLowerCase())
     return matchType && matchSearch
   })
+
+  const totalPages = Math.max(1, Math.ceil(visible.length / perPage))
+  const safePage   = Math.min(page, totalPages)
+  const paginated  = visible.slice((safePage - 1) * perPage, safePage * perPage)
 
   const FILTER_CARDS = [
     { value: 'all', label: 'Tous', desc: `${models.length} modele${models.length !== 1 ? 's' : ''}`, color: '#374151' },
@@ -419,9 +473,49 @@ export default function ModelsPage() {
               </p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
-              {visible.map(m => <ModelCard key={m.id} model={m} onDelete={handleDelete} onEdit={openEdit} />)}
-            </div>
+            <>
+              {/* Infos + sélecteur par page */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <span style={{ fontSize: 13, color: '#6B7280' }}>
+                  {visible.length} modèle{visible.length !== 1 ? 's' : ''}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>Afficher</span>
+                  <select
+                    value={perPage}
+                    onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+                    style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: 12, color: '#374151', cursor: 'pointer', outline: 'none' }}
+                  >
+                    {PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} / page</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Grille */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
+                {paginated.map(m => <ModelCard key={m.id} model={m} onDelete={handleDelete} onEdit={openEdit} />)}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 24 }}>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                    style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', backgroundColor: '#fff', cursor: safePage === 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: safePage === 1 ? 0.4 : 1 }}>
+                    <ChevronLeft size={15} color="#374151" />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                    <button key={n} onClick={() => setPage(n)}
+                      style={{ width: 32, height: 32, borderRadius: 6, fontSize: 13, fontWeight: 600, border: `1px solid ${n === safePage ? GREEN : '#E5E7EB'}`, backgroundColor: n === safePage ? GREEN : '#fff', color: n === safePage ? '#fff' : '#374151', cursor: 'pointer' }}>
+                      {n}
+                    </button>
+                  ))}
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                    style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', backgroundColor: '#fff', cursor: safePage === totalPages ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: safePage === totalPages ? 0.4 : 1 }}>
+                    <ChevronRight size={15} color="#374151" />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
         <PageFooter />

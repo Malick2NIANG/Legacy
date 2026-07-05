@@ -1,12 +1,13 @@
 /**
  * Page de gestion des experiences ML.
- * Lance des experiences avec polling du statut en temps reel.
+ * Grille de cartes, recherche, pagination et modal de confirmation.
  */
 import useLayout from '../hooks/useLayout'
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   FlaskConical, Play, Plus, X, AlertCircle,
-  CheckCircle, Clock, XCircle, Loader, BarChart2, Trash2, Pencil
+  CheckCircle, Clock, XCircle, Loader, BarChart2, Trash2, Pencil,
+  ChevronLeft, ChevronRight, Search
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Navbar     from '../components/common/Navbar'
@@ -17,7 +18,8 @@ import modelService      from '../services/modelService'
 import experimentService from '../services/experimentService'
 import { useToast }      from '../context/ToastContext'
 
-const GREEN = '#00853F'
+const GREEN        = '#00853F'
+const PAGE_OPTIONS = [4, 8, 16, 32]
 
 const STATUS_INFO = {
   pending:   { label: 'En attente', color: '#9CA3AF', Icon: Clock       },
@@ -26,7 +28,6 @@ const STATUS_INFO = {
   failed:    { label: 'Echouee',    color: '#EF4444', Icon: XCircle     },
 }
 
-// Mapping étape Celery → pourcentage
 const STEP_PCT = {
   'Chargement des donnees':               15,
   'Entrainement du modele':               45,
@@ -41,9 +42,51 @@ const INPUT_STYLE = {
   outline: 'none', boxSizing: 'border-box', backgroundColor: '#fff',
 }
 
+/* ── Modal confirmation suppression ───────────────────────────────────────── */
+function ConfirmDeleteModal({ exp, onConfirm, onCancel }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 950,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div style={{
+        backgroundColor: '#fff', borderRadius: 14, width: 'min(420px, 92vw)',
+        padding: '28px 28px 24px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Trash2 size={18} color="#EF4444" />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#111827' }}>Supprimer cette expérience ?</p>
+            <p style={{ margin: 0, fontSize: 12, color: '#6B7280', marginTop: 2 }}>Cette action est irréversible.</p>
+          </div>
+        </div>
+        <div style={{ backgroundColor: '#F9FAFB', borderRadius: 8, padding: '10px 14px', marginBottom: 20, border: '1px solid #E5E7EB' }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#374151' }}>{exp.name}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9CA3AF' }}>
+            {exp.dataset_name || `Dataset #${exp.dataset_id}`} · {exp.model_name || `Modèle #${exp.model_id}`}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #E5E7EB',
+            backgroundColor: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer',
+          }}>Annuler</button>
+          <button onClick={onConfirm} style={{
+            flex: 1, padding: '10px 0', borderRadius: 8, border: 'none',
+            backgroundColor: '#EF4444', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer',
+          }}>Supprimer</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Badge statut ─────────────────────────────────────────────────────────── */
 function StatusBadge({ status }) {
-  const info = STATUS_INFO[status] || STATUS_INFO.pending
-  const { label, color, Icon } = info
+  const { label, color, Icon } = STATUS_INFO[status] || STATUS_INFO.pending
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -55,12 +98,12 @@ function StatusBadge({ status }) {
   )
 }
 
+/* ── Barre de progression ─────────────────────────────────────────────────── */
 function ProgressBar({ pct }) {
   return (
-    <div style={{ width: '100%', height: 5, backgroundColor: '#FEF3C7', borderRadius: 99, overflow: 'hidden', marginTop: 8 }}>
+    <div style={{ width: '100%', height: 4, backgroundColor: '#FEF3C7', borderRadius: 99, overflow: 'hidden', marginTop: 8 }}>
       <div style={{
-        height: '100%', borderRadius: 99,
-        width: `${pct}%`,
+        height: '100%', borderRadius: 99, width: `${pct}%`,
         background: 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)',
         transition: 'width 0.6s ease',
       }} />
@@ -68,100 +111,117 @@ function ProgressBar({ pct }) {
   )
 }
 
-function ExperimentRow({ exp, step, onDelete, onRetry, onEdit }) {
-  const created = exp.created_at ? new Date(exp.created_at).toLocaleDateString('fr-FR') : ''
+/* ── Carte expérience ─────────────────────────────────────────────────────── */
+function ExperimentCard({ exp, step, onDelete, onRetry, onEdit }) {
+  const [showConfirm, setShowConfirm] = useState(false)
+  const toast = useToast()
+
+  const created  = exp.created_at ? new Date(exp.created_at).toLocaleDateString('fr-FR') : ''
   const isRunning = exp.status === 'running'
   const isFailed  = exp.status === 'failed'
-  const borderColor = isRunning ? '#FDE68A' : isFailed ? '#FECACA' : '#D6E8DC'
   const pct = isRunning ? (step ? (STEP_PCT[step] ?? 30) : 10) : (exp.status === 'completed' ? 100 : 0)
 
+  const iconBg    = isRunning ? '#FEF3C7' : isFailed ? '#FEF2F2' : '#F4F7F5'
+  const iconColor = isRunning ? '#F59E0B' : isFailed ? '#EF4444' : '#9CA3AF'
+  const borderColor = isRunning ? '#FDE68A' : isFailed ? '#FECACA' : '#E5E7EB'
+
+  const handleConfirmDelete = async () => {
+    try {
+      await onDelete(exp.id)
+      toast.success(`"${exp.name}" supprimée`)
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    } finally {
+      setShowConfirm(false)
+    }
+  }
+
   return (
-    <div style={{
-      backgroundColor: '#fff', border: `1px solid ${borderColor}`,
-      borderRadius: 10, padding: '16px 20px',
-      boxShadow: isRunning ? '0 0 0 2px #FEF3C720' : isFailed ? '0 0 0 2px #FEF2F220' : 'none',
-      transition: 'border-color 0.3s',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 8,
-            backgroundColor: isRunning ? '#FEF3C7' : isFailed ? '#FEF2F2' : '#F4F7F5',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <FlaskConical size={16} color={isRunning ? '#F59E0B' : isFailed ? '#EF4444' : '#9CA3AF'} />
+    <>
+      {showConfirm && <ConfirmDeleteModal exp={exp} onConfirm={handleConfirmDelete} onCancel={() => setShowConfirm(false)} />}
+      <div style={{
+        backgroundColor: '#fff', border: `1px solid ${borderColor}`,
+        borderRadius: 12, padding: '20px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        display: 'flex', flexDirection: 'column', gap: 14,
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <FlaskConical size={18} color={iconColor} />
           </div>
-          <div>
-            <p style={{ margin: '0 0 2px', fontWeight: 600, fontSize: 14, color: '#111827' }}>
-              {exp.name || `Experience #${exp.id}`}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 14, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {exp.name}
             </p>
             <p style={{ margin: 0, fontSize: 11, color: '#9CA3AF' }}>
-              {exp.dataset_name || `Dataset #${exp.dataset_id}`} &middot; {exp.model_name || `Modele #${exp.model_id}`} &middot; {created}
+              {exp.dataset_name || `Dataset #${exp.dataset_id}`} · {exp.model_name || `Modèle #${exp.model_id}`} · {created}
             </p>
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <StatusBadge status={exp.status} />
+        </div>
+
+        {/* Barre de progression */}
+        {isRunning && (
+          <div>
+            <ProgressBar pct={pct} />
+            <p style={{ margin: '5px 0 0', fontSize: 11, color: '#D97706', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Loader size={10} style={{ animation: 'spin 1s linear infinite' }} />
+              {step || 'Initialisation…'} · {pct}%
+            </p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
           {exp.status === 'completed' && (
             <Link to={`/results/${exp.id}`} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '7px 0', borderRadius: 6,
+              border: `1px solid ${GREEN}40`, backgroundColor: '#F0FDF4',
               fontSize: 12, color: GREEN, textDecoration: 'none', fontWeight: 600,
             }}>
-              <BarChart2 size={12} /> Voir resultats
+              <BarChart2 size={12} /> Résultats
             </Link>
           )}
           {isFailed && (
             <button onClick={() => onRetry(exp)} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              fontSize: 12, color: '#EF4444', fontWeight: 600,
-              background: '#FEF2F2', border: '1px solid #FECACA',
-              borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '7px 0', borderRadius: 6,
+              border: '1px solid #FECACA', backgroundColor: '#FEF2F2',
+              fontSize: 12, color: '#EF4444', cursor: 'pointer', fontWeight: 600,
             }}>
-              <Play size={11} /> Réessayer
+              <Play size={12} /> Réessayer
             </button>
           )}
           {!isRunning && (
             <button onClick={() => onEdit(exp)} title="Modifier et relancer" style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#9CA3AF', padding: 4, borderRadius: 6,
-              display: 'flex', alignItems: 'center', transition: 'color 0.15s',
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '7px 0', borderRadius: 6,
+              border: '1px solid #E5E7EB', backgroundColor: 'transparent',
+              fontSize: 12, color: '#6B7280', cursor: 'pointer',
             }}
-            onMouseEnter={e => e.currentTarget.style.color = '#4361EE'}
-            onMouseLeave={e => e.currentTarget.style.color = '#9CA3AF'}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#4361EE'; e.currentTarget.style.color = '#4361EE' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#6B7280' }}
             >
-              <Pencil size={14} />
+              <Pencil size={12} /> Modifier
             </button>
           )}
-          <button
-            onClick={() => onDelete(exp.id)}
-            title="Supprimer"
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#D1D5DB', padding: 4, borderRadius: 6,
-              display: 'flex', alignItems: 'center', transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = '#EF4444'}
-            onMouseLeave={e => e.currentTarget.style.color = '#D1D5DB'}
-          >
-            <Trash2 size={14} />
+          <button onClick={() => setShowConfirm(true)} title="Supprimer" style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            padding: '7px 0', borderRadius: 6,
+            border: '1px solid #FECACA', backgroundColor: 'transparent',
+            fontSize: 12, color: '#EF4444', cursor: 'pointer',
+          }}>
+            <Trash2 size={12} /> Supprimer
           </button>
         </div>
       </div>
-
-      {/* Barre de progression — visible uniquement pendant running */}
-      {isRunning && (
-        <div style={{ marginTop: 10 }}>
-          <ProgressBar pct={pct} />
-          <p style={{ margin: '5px 0 0', fontSize: 11, color: '#D97706', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Loader size={10} style={{ animation: 'spin 1s linear infinite' }} />
-            {step || 'Initialisation…'} · {pct}%
-          </p>
-        </div>
-      )}
-    </div>
+    </>
   )
 }
 
+/* ── Page principale ──────────────────────────────────────────────────────── */
 export default function ExperimentsPage() {
   const { mainStyle } = useLayout()
   const toast = useToast()
@@ -173,7 +233,10 @@ export default function ExperimentsPage() {
   const [form, setForm]               = useState({ name: '', dataset_id: '', model_id: '' })
   const [launching, setLaunching]     = useState(false)
   const [error, setError]             = useState('')
-  const [steps, setSteps]             = useState({})   // { [expId]: step string }
+  const [steps, setSteps]             = useState({})
+  const [search,  setSearch]          = useState('')
+  const [page,    setPage]            = useState(1)
+  const [perPage, setPerPage]         = useState(8)
   const pollRef    = useRef(null)
   const prevStatus = useRef({})
 
@@ -198,13 +261,11 @@ export default function ExperimentsPage() {
 
   const startPolling = (exps) => {
     clearInterval(pollRef.current)
-    // Mémoriser les statuts courants pour détecter les changements
     exps.forEach(e => { prevStatus.current[e.id] = e.status })
     const running = exps.filter(e => e.status === 'running' || e.status === 'pending')
     if (running.length === 0) return
     pollRef.current = setInterval(async () => {
       const updated = await experimentService.getAll()
-      // Notifier les changements de statut
       updated.forEach(e => {
         const prev = prevStatus.current[e.id]
         if (prev && prev !== e.status) {
@@ -214,27 +275,17 @@ export default function ExperimentsPage() {
         }
       })
       setExperiments(updated)
-
-      // Récupérer l'étape Celery pour chaque expérience en cours
       const running = updated.filter(e => e.status === 'running')
       if (running.length > 0) {
-        const statusResults = await Promise.allSettled(
-          running.map(e => experimentService.getStatus(e.id))
-        )
+        const statusResults = await Promise.allSettled(running.map(e => experimentService.getStatus(e.id)))
         const newSteps = {}
         statusResults.forEach((res, i) => {
-          if (res.status === 'fulfilled' && res.value.step) {
-            newSteps[running[i].id] = res.value.step
-          }
+          if (res.status === 'fulfilled' && res.value.step) newSteps[running[i].id] = res.value.step
         })
         setSteps(prev => ({ ...prev, ...newSteps }))
       }
-
       const stillRunning = updated.filter(e => e.status === 'running' || e.status === 'pending')
-      if (stillRunning.length === 0) {
-        clearInterval(pollRef.current)
-        setSteps({})
-      }
+      if (stillRunning.length === 0) { clearInterval(pollRef.current); setSteps({}) }
     }, 3000)
   }
 
@@ -259,11 +310,8 @@ export default function ExperimentsPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer cette experience et ses resultats ?')) return
-    try {
-      await experimentService.delete(id)
-      setExperiments(prev => prev.filter(e => e.id !== id))
-    } catch { toast.error('Erreur lors de la suppression.') }
+    await experimentService.delete(id)
+    setExperiments(prev => prev.filter(e => e.id !== id))
   }
 
   const handleEdit = (exp) => {
@@ -277,12 +325,8 @@ export default function ExperimentsPage() {
 
   const handleRetry = async (exp) => {
     try {
-      const created = await experimentService.launch({
-        name:       `${exp.name}_retry`,
-        dataset_id: exp.dataset_id,
-        model_id:   exp.model_id,
-      })
-      const updated = [created, ...experiments]
+      const updated_exp = await experimentService.retry(exp.id)
+      const updated = experiments.map(e => e.id === exp.id ? updated_exp : e)
       setExperiments(updated)
       startPolling(updated)
       toast.info(`Relance de "${exp.name}"…`)
@@ -292,6 +336,21 @@ export default function ExperimentsPage() {
   }
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
+
+  // Filtrage + pagination
+  const filtered = useMemo(() => {
+    if (!search) return experiments
+    const q = search.toLowerCase()
+    return experiments.filter(e =>
+      e.name?.toLowerCase().includes(q) ||
+      e.dataset_name?.toLowerCase().includes(q) ||
+      e.model_name?.toLowerCase().includes(q)
+    )
+  }, [experiments, search])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
+  const safePage   = Math.min(page, totalPages)
+  const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage)
 
   return (
     <div style={{ fontFamily: 'Inter, Segoe UI, sans-serif', backgroundColor: '#F4F7F5', minHeight: '100vh' }}>
@@ -318,22 +377,81 @@ export default function ExperimentsPage() {
             </button>
           </div>
 
-          {/* Liste */}
+          {/* Contenu */}
           {loading ? (
             <p style={{ color: '#9CA3AF', fontSize: 14 }}>Chargement...</p>
           ) : experiments.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '64px 24px', color: '#9CA3AF' }}>
               <FlaskConical size={40} color="#D1D5DB" style={{ marginBottom: 12 }} />
-              <p style={{ margin: 0, fontSize: 15 }}>
-                Aucune experience - importez d'abord un dataset et un modele.
-              </p>
+              <p style={{ margin: 0, fontSize: 15 }}>Aucune experience — importez d'abord un dataset et un modele.</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {experiments.map(exp => (
-                <ExperimentRow key={exp.id} exp={exp} step={steps[exp.id]} onDelete={handleDelete} onRetry={handleRetry} onEdit={handleEdit} />
-              ))}
-            </div>
+            <>
+              {/* Recherche */}
+              <div style={{ position: 'relative', marginBottom: 14 }}>
+                <Search size={14} color="#9CA3AF" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+                  placeholder="Rechercher une experience..."
+                  style={{ ...INPUT_STYLE, paddingLeft: 34 }}
+                />
+              </div>
+
+              {/* Infos + perPage */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <span style={{ fontSize: 13, color: '#6B7280' }}>
+                  {filtered.length} expérience{filtered.length !== 1 ? 's' : ''}
+                  {search ? ` · recherche "${search}"` : ''}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>Afficher</span>
+                  <select
+                    value={perPage}
+                    onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+                    style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: 12, color: '#374151', cursor: 'pointer', outline: 'none' }}
+                  >
+                    {PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} / page</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Grille cartes */}
+              {filtered.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 24px', backgroundColor: '#F9FAFB', borderRadius: 12, border: '2px dashed #E5E7EB' }}>
+                  <FlaskConical size={36} color="#D1D5DB" style={{ marginBottom: 12 }} />
+                  <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>Aucune expérience ne correspond à ce filtre.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                  {paginated.map(exp => (
+                    <ExperimentCard
+                      key={exp.id} exp={exp} step={steps[exp.id]}
+                      onDelete={handleDelete} onRetry={handleRetry} onEdit={handleEdit}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 24 }}>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                    style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', backgroundColor: '#fff', cursor: safePage === 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: safePage === 1 ? 0.4 : 1 }}>
+                    <ChevronLeft size={15} color="#374151" />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                    <button key={n} onClick={() => setPage(n)}
+                      style={{ width: 32, height: 32, borderRadius: 6, fontSize: 13, fontWeight: 600, border: `1px solid ${n === safePage ? GREEN : '#E5E7EB'}`, backgroundColor: n === safePage ? GREEN : '#fff', color: n === safePage ? '#fff' : '#374151', cursor: 'pointer' }}>
+                      {n}
+                    </button>
+                  ))}
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                    style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', backgroundColor: '#fff', cursor: safePage === totalPages ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: safePage === totalPages ? 0.4 : 1 }}>
+                    <ChevronRight size={15} color="#374151" />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
         <PageFooter />
@@ -366,7 +484,6 @@ export default function ExperimentsPage() {
                 <input value={form.name} onChange={e => set('name', e.target.value)}
                   placeholder="Classification recrutement #1" required style={INPUT_STYLE} />
               </div>
-
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
                   Dataset
@@ -377,7 +494,6 @@ export default function ExperimentsPage() {
                   {datasets.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
-
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
                   Modele
@@ -390,13 +506,11 @@ export default function ExperimentsPage() {
                   ))}
                 </select>
               </div>
-
               {error && (
                 <div style={{ display: 'flex', gap: 7, alignItems: 'center', color: '#EF4444', fontSize: 12, marginBottom: 14 }}>
                   <AlertCircle size={13} />{error}
                 </div>
               )}
-
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" onClick={() => setOpen(false)} style={{
                   flex: 1, padding: '10px', borderRadius: 8,
