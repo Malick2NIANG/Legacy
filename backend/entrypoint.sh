@@ -26,4 +26,4 @@ echo "🚀 Démarrage du worker Celery en arrière-plan..."
 celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 &
 
 echo "🚀 Démarrage du serveur FastAPI..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
