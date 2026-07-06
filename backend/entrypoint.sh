@@ -14,7 +14,6 @@ else
 fi
 
 # Si une commande est passée (ex: celery worker), on l'exécute directement
-# sans relancer les migrations (déjà gérées par le service backend).
 if [ "$#" -gt 0 ]; then
   echo "🚀 Démarrage : $@"
   exec "$@"
@@ -23,5 +22,8 @@ fi
 echo "🔄 Lancement des migrations Alembic..."
 alembic upgrade head
 
+echo "🚀 Démarrage du worker Celery en arrière-plan..."
+celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 &
+
 echo "🚀 Démarrage du serveur FastAPI..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000
