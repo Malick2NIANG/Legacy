@@ -3,7 +3,7 @@ Router principal de l'API v1.
 Agregre tous les routers des endpoints.
 """
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, datasets, models, experiments, results, admin, dashboard
+from app.api.v1.endpoints import auth, datasets, models, experiments, results, admin, dashboard, utils
 
 api_router = APIRouter()
 
@@ -14,3 +14,4 @@ api_router.include_router(experiments.router, prefix="/experiments", tags=["Expe
 api_router.include_router(results.router,     prefix="/results",     tags=["Results"])
 api_router.include_router(admin.router,       prefix="/admin",       tags=["Admin"])
 api_router.include_router(dashboard.router,   prefix="/dashboard",   tags=["Dashboard"])
+api_router.include_router(utils.router,       prefix="/utils",       tags=["Utils"])

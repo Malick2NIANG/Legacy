@@ -15,7 +15,7 @@ class StorageService:
             settings.MINIO_ENDPOINT,
             access_key=settings.MINIO_ACCESS_KEY,
             secret_key=settings.MINIO_SECRET_KEY,
-            secure=False,
+            secure=settings.MINIO_SECURE,
         )
         self.bucket = settings.MINIO_BUCKET
         self.models_bucket = settings.MINIO_MODELS_BUCKET

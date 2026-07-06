@@ -1,0 +1,79 @@
+# ─────────────────────────────────────────────────────────────────
+#  Legacy Platform — Configuration Render.com
+#  Déploie : backend FastAPI (web) + worker Celery (background)
+#  Pré-requis : créer les services externes d'abord
+#    - Supabase  → DATABASE_URL
+#    - Upstash   → REDIS_URL
+#    - Cloudflare R2 → MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
+# ─────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Backend FastAPI ───────────────────────────────────────────
+  - type: web
+    name: legacy-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+      - key: DATABASE_URL
+        sync: false          # À renseigner dans le dashboard Render
+      - key: REDIS_URL
+        sync: false
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET
+        value: "datasets"
+      - key: MINIO_MODELS_BUCKET
+        value: "models"
+      - key: MINIO_SECURE
+        value: "true"
+      - key: ALLOWED_ORIGINS
+        sync: false          # Ex: ["https://legacy-platform.vercel.app"]
+      - key: FRONTEND_URL
+        sync: false
+      - key: TZ
+        value: "Africa/Dakar"
+
+  # ── Worker Celery ─────────────────────────────────────────────
+  - type: worker
+    name: legacy-celery-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    startCommand: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET
+        value: "datasets"
+      - key: MINIO_MODELS_BUCKET
+        value: "models"
+      - key: MINIO_SECURE
+        value: "true"
+      - key: SECRET_KEY
+        fromService:
+          name: legacy-backend
+          type: web
+          envVarKey: SECRET_KEY
+      - key: TZ
+        value: "Africa/Dakar"

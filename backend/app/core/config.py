@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_BUCKET: str = "datasets"
     MINIO_MODELS_BUCKET: str = "models"
+    MINIO_SECURE: bool = False  # True en production (Cloudflare R2)
 
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
 
