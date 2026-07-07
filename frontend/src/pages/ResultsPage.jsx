@@ -310,8 +310,7 @@ export default function ResultsPage() {
       const blob = await experimentService.exportResults(selected, format)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      const prefix = format === 'csv_history' ? 'historique' : 'resultats'
-      a.href = url; a.download = `${prefix}_${selected}.${ext || format}`; a.click()
+      a.href = url; a.download = `legacy_resultats_${selected}.${ext || format}`; a.click()
       URL.revokeObjectURL(url)
     } catch { } finally { setExporting(false) }
   }
@@ -362,9 +361,8 @@ export default function ResultsPage() {
                 })()}
                 <div style={{ width: 1, height: 24, backgroundColor: '#D6E8DC' }} />
                 {[
-                  { fmt: 'csv',         label: 'CSV Resume',     title: 'Metriques + infos experience + matrice de confusion', ext: 'csv'  },
-                  { fmt: 'csv_history', label: 'CSV Historique', title: 'Historique entrainement epoch par epoch',              ext: 'csv'  },
-                  { fmt: 'json',        label: 'JSON Complet',   title: 'Metriques + historique + matrice de confusion',       ext: 'json' },
+                  { fmt: 'csv',  label: 'Rapport Excel', title: 'Rapport complet : métriques, infos expérience, matrice de confusion', ext: 'xlsx' },
+                  { fmt: 'json', label: 'JSON Complet', title: 'Métriques + historique + matrice de confusion',                          ext: 'json' },
                 ].map(({ fmt, label, title, ext }) => (
                   <button key={fmt} onClick={() => handleExport(fmt, ext)} disabled={exporting}
                     title={title}

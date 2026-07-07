@@ -5,6 +5,9 @@ Fournit les metriques, la matrice de confusion et les exports CSV/JSON.
 import csv
 import io
 import json
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 from datetime import timezone
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -131,57 +134,139 @@ def export_results(
     history = result.training_history or {}
 
     if format == "csv":
-        output = io.StringIO()
-        output.write('﻿')  # BOM UTF-8 pour Excel
-        writer = csv.writer(output, delimiter=';')  # ; pour Excel français
+        # ── Couleurs Legacy ─────────────────────────────────────
+        GREEN      = "00853F"
+        DARK       = "0D2818"
+        GOLD       = "F5A227"
+        LIGHT_GREEN= "E6F4ED"
+        LIGHT_GOLD = "FEF3E2"
+        WHITE      = "FFFFFF"
+        GRAY       = "F4F7F5"
 
-        # ── Titre ──────────────────────────────────────────────
-        writer.writerow(["LEGACY — Rapport de Résultats"])
-        writer.writerow([])
+        def _fill(hex_color):
+            return PatternFill("solid", fgColor=hex_color)
 
-        # ── Informations expérience ─────────────────────────────
+        def _border():
+            s = Side(style="thin", color="D6E8DC")
+            return Border(left=s, right=s, top=s, bottom=s)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Résultats Legacy"
+
+        # ── Titre principal ─────────────────────────────────────
+        ws.merge_cells("A1:C1")
+        title_cell = ws["A1"]
+        title_cell.value = "LEGACY — Rapport de Résultats"
+        title_cell.font      = Font(bold=True, size=14, color=WHITE)
+        title_cell.fill      = _fill(DARK)
+        title_cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[1].height = 28
+
+        ws.append([])  # ligne vide
+
+        # ── Statut ──────────────────────────────────────────────
         status_str = ""
         if exp and exp.status:
             s = str(exp.status)
             status_str = s.split(".")[-1] if "." in s else s
 
-        writer.writerow(["INFORMATIONS EXPÉRIENCE"])
-        writer.writerow(["ID",         experiment_id])
-        writer.writerow(["Nom",        exp.name if exp else ""])
-        writer.writerow(["Dataset",    dataset.name if dataset else ""])
-        writer.writerow(["Modèle",     model.name if model else ""])
-        writer.writerow(["Type",       model.model_type if model else ""])
-        writer.writerow(["Statut",     status_str])
-        writer.writerow(["Créé le",    _fmt_dakar(exp.created_at) if exp else ""])
-        writer.writerow(["Terminé le", _fmt_dakar(exp.finished_at) if exp else ""])
+        # ── Section helper ──────────────────────────────────────
+        def _section(label):
+            ws.append([label])
+            row = ws.max_row
+            cell = ws.cell(row=row, column=1)
+            cell.font      = Font(bold=True, size=11, color=WHITE)
+            cell.fill      = _fill(GREEN)
+            cell.alignment = Alignment(vertical="center")
+            ws.row_dimensions[row].height = 20
+            ws.merge_cells(f"A{row}:C{row}")
+
+        def _row(key, value, fill_color=None):
+            ws.append([key, value])
+            row = ws.max_row
+            for col in [1, 2]:
+                c = ws.cell(row=row, column=col)
+                c.border = _border()
+                if col == 1:
+                    c.font = Font(bold=True, size=10, color=DARK)
+                    c.fill = _fill(GRAY)
+                else:
+                    c.font = Font(size=10, color=DARK)
+                    c.fill = _fill(fill_color or WHITE)
+
+        # ── Informations expérience ─────────────────────────────
+        _section("INFORMATIONS EXPÉRIENCE")
+        _row("ID",          experiment_id)
+        _row("Nom",         exp.name if exp else "")
+        _row("Dataset",     dataset.name if dataset else "")
+        _row("Modèle",      model.name if model else "")
+        _row("Type",        model.model_type if model else "")
+        _row("Statut",      status_str)
+        _row("Créé le",     _fmt_dakar(exp.created_at) if exp else "")
+        _row("Terminé le",  _fmt_dakar(exp.finished_at) if exp else "")
         if duration_s is not None:
             mins, secs = divmod(duration_s, 60)
-            writer.writerow(["Durée", f"{mins}m {secs}s"])
+            _row("Durée",   f"{mins}m {secs}s")
         else:
-            writer.writerow(["Durée", ""])
-        writer.writerow([])
+            _row("Durée",   "")
+        ws.append([])
 
         # ── Métriques ───────────────────────────────────────────
-        writer.writerow(["MÉTRIQUES (%)"])
-        writer.writerow(["Accuracy",  f"{round(result.accuracy  * 100, 2)} %" if result.accuracy  is not None else ""])
-        writer.writerow(["Precision", f"{round(result.precision * 100, 2)} %" if result.precision is not None else ""])
-        writer.writerow(["Recall",    f"{round(result.recall    * 100, 2)} %" if result.recall    is not None else ""])
-        writer.writerow(["F1 Score",  f"{round(result.f1_score  * 100, 2)} %" if result.f1_score  is not None else ""])
-        writer.writerow([])
+        _section("MÉTRIQUES")
+        metrics = [
+            ("Accuracy",  result.accuracy),
+            ("Precision", result.precision),
+            ("Recall",    result.recall),
+            ("F1 Score",  result.f1_score),
+        ]
+        for name, val in metrics:
+            pct = round(val * 100, 2) if val is not None else None
+            fill = LIGHT_GREEN if pct and pct >= 80 else (LIGHT_GOLD if pct and pct >= 60 else WHITE)
+            _row(name, f"{pct} %" if pct is not None else "", fill_color=fill)
+        ws.append([])
 
         # ── Matrice de confusion ────────────────────────────────
         if cm:
-            writer.writerow(["MATRICE DE CONFUSION"])
+            _section("MATRICE DE CONFUSION")
             n = len(cm)
-            writer.writerow([""] + [f"Prédit {i}" for i in range(n)])
-            for i, row_data in enumerate(cm):
-                writer.writerow([f"Réel {i}"] + list(row_data))
+            header_row = [""] + [f"Prédit {i}" for i in range(n)]
+            ws.append(header_row)
+            hrow = ws.max_row
+            for col_idx in range(1, n + 2):
+                c = ws.cell(row=hrow, column=col_idx)
+                c.font = Font(bold=True, color=WHITE, size=10)
+                c.fill = _fill(GOLD)
+                c.alignment = Alignment(horizontal="center")
+                c.border = _border()
 
-        output.seek(0)
-        filename = f"legacy_resultats_{experiment_id}.csv"
+            for i, row_data in enumerate(cm):
+                ws.append([f"Réel {i}"] + list(row_data))
+                r = ws.max_row
+                ws.cell(row=r, column=1).font = Font(bold=True, color=DARK, size=10)
+                ws.cell(row=r, column=1).fill = _fill(GRAY)
+                ws.cell(row=r, column=1).border = _border()
+                for j, val in enumerate(row_data):
+                    c = ws.cell(row=r, column=j + 2)
+                    # Diagonale = bon résultat → vert
+                    c.fill = _fill(LIGHT_GREEN if i == j else WHITE)
+                    c.font = Font(bold=(i == j), color=DARK, size=10)
+                    c.alignment = Alignment(horizontal="center")
+                    c.border = _border()
+
+        # ── Largeurs colonnes ────────────────────────────────────
+        ws.column_dimensions["A"].width = 18
+        ws.column_dimensions["B"].width = 28
+        ws.column_dimensions["C"].width = 16
+
+        # ── Export ──────────────────────────────────────────────
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        filename = f"legacy_resultats_{experiment_id}.xlsx"
         return StreamingResponse(
-            output,
-            media_type="text/csv; charset=utf-8-sig",
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
