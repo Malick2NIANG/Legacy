@@ -131,31 +131,58 @@ def export_results(
     history = result.training_history or {}
 
     if format == "csv":
-        row = {
-            "experiment_id":   experiment_id,
-            "experiment_name": exp.name if exp else "",
-            "dataset":         dataset.name if dataset else "",
-            "model":           model.name if model else "",
-            "model_type":      model.model_type if model else "",
-            "status":          exp.status if exp else "",
-            "created_at":      _fmt_dakar(exp.created_at) if exp else "",
-            "finished_at":     _fmt_dakar(exp.finished_at) if exp else "",
-            "duration_s":      duration_s if duration_s is not None else "",
-            "accuracy":        round(result.accuracy * 100, 4) if result.accuracy is not None else "",
-            "precision":       round(result.precision * 100, 4) if result.precision is not None else "",
-            "recall":          round(result.recall * 100, 4) if result.recall is not None else "",
-            "f1_score":        round(result.f1_score * 100, 4) if result.f1_score is not None else "",
-        }
-        row.update(cm_flat)
         output = io.StringIO()
-        writer = csv.DictWriter(output, fieldnames=list(row.keys()))
-        writer.writeheader()
-        writer.writerow(row)
+        output.write('﻿')  # BOM UTF-8 pour Excel
+        writer = csv.writer(output, delimiter=';')  # ; pour Excel français
+
+        # ── Titre ──────────────────────────────────────────────
+        writer.writerow(["LEGACY — Rapport de Résultats"])
+        writer.writerow([])
+
+        # ── Informations expérience ─────────────────────────────
+        status_str = ""
+        if exp and exp.status:
+            s = str(exp.status)
+            status_str = s.split(".")[-1] if "." in s else s
+
+        writer.writerow(["INFORMATIONS EXPÉRIENCE"])
+        writer.writerow(["ID",         experiment_id])
+        writer.writerow(["Nom",        exp.name if exp else ""])
+        writer.writerow(["Dataset",    dataset.name if dataset else ""])
+        writer.writerow(["Modèle",     model.name if model else ""])
+        writer.writerow(["Type",       model.model_type if model else ""])
+        writer.writerow(["Statut",     status_str])
+        writer.writerow(["Créé le",    _fmt_dakar(exp.created_at) if exp else ""])
+        writer.writerow(["Terminé le", _fmt_dakar(exp.finished_at) if exp else ""])
+        if duration_s is not None:
+            mins, secs = divmod(duration_s, 60)
+            writer.writerow(["Durée", f"{mins}m {secs}s"])
+        else:
+            writer.writerow(["Durée", ""])
+        writer.writerow([])
+
+        # ── Métriques ───────────────────────────────────────────
+        writer.writerow(["MÉTRIQUES (%)"])
+        writer.writerow(["Accuracy",  f"{round(result.accuracy  * 100, 2)} %" if result.accuracy  is not None else ""])
+        writer.writerow(["Precision", f"{round(result.precision * 100, 2)} %" if result.precision is not None else ""])
+        writer.writerow(["Recall",    f"{round(result.recall    * 100, 2)} %" if result.recall    is not None else ""])
+        writer.writerow(["F1 Score",  f"{round(result.f1_score  * 100, 2)} %" if result.f1_score  is not None else ""])
+        writer.writerow([])
+
+        # ── Matrice de confusion ────────────────────────────────
+        if cm:
+            writer.writerow(["MATRICE DE CONFUSION"])
+            n = len(cm)
+            writer.writerow([""] + [f"Prédit {i}" for i in range(n)])
+            for i, row_data in enumerate(cm):
+                writer.writerow([f"Réel {i}"] + list(row_data))
+
         output.seek(0)
+        filename = f"legacy_resultats_{experiment_id}.csv"
         return StreamingResponse(
             output,
-            media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=results_{experiment_id}.csv"},
+            media_type="text/csv; charset=utf-8-sig",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     if format == "csv_history":
