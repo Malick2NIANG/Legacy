@@ -5,9 +5,6 @@ Fournit les metriques, la matrice de confusion et les exports CSV/JSON.
 import csv
 import io
 import json
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 from datetime import timezone
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -134,6 +131,10 @@ def export_results(
     history = result.training_history or {}
 
     if format == "csv":
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter  # noqa: F401
+
         # ── Couleurs Legacy ─────────────────────────────────────
         GREEN      = "00853F"
         DARK       = "0D2818"
