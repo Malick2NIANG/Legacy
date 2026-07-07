@@ -231,12 +231,6 @@ function BackgroundPattern() {
           })}
         </g>
 
-        {/* Dégradé masque pour que ça ne couvre pas le texte */}
-        <radialGradient id="centerFade" cx="50%" cy="40%" r="45%">
-          <stop offset="0%"   stopColor="#091A0C" stopOpacity="0.7"/>
-          <stop offset="100%" stopColor="#091A0C" stopOpacity="0"/>
-        </radialGradient>
-        <rect width="1440" height="900" fill="url(#centerFade)"/>
       </svg>
     </div>
   )
