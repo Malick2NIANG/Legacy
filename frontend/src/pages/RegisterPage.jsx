@@ -287,7 +287,9 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <AuthCarousel/>
+      <div className="auth-carousel" style={{ flex: 1, display: 'flex' }}>
+        <AuthCarousel/>
+      </div>
     </div>
   )
 }
